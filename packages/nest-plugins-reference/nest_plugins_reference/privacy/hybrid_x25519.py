@@ -722,6 +722,8 @@ class HybridX25519Privacy:
 
             ok = await priv.verify_proof(stmt, proof)
         """
+        if proof.statement != statement:
+            return False
         if proof.scheme != PROOF_SCHEME:
             return False
         anchored_root = statement.public_inputs.get("root")

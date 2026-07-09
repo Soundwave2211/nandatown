@@ -36,6 +36,7 @@ attacks — failing against `noop` and passing against this plugin. Supports a
 
 Source: [`nest_plugins_reference/privacy/hybrid_x25519.py`](../../packages/nest-plugins-reference/nest_plugins_reference/privacy/hybrid_x25519.py).
 See `scenarios/sealed_bid_with_privacy.yaml` for a wired example.
+Design note: [`q9_hybrid_privacy.md`](../q9_hybrid_privacy.md).
 
 ## Writing your own
 

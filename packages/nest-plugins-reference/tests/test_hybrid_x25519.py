@@ -156,6 +156,18 @@ class TestSelectiveDisclosure:
         )
         assert not await alice.verify_proof(forged, proof)
 
+    async def test_proof_statement_must_match_verifier_statement(self) -> None:
+        """The proof object must be bound to the exact statement being verified."""
+        alice = _mk("alice")
+        statement, witness, _ = _credential()
+        proof = await alice.prove(statement, witness)
+        forged_statement = Statement(
+            predicate="selective_disclosure",
+            public_inputs={**statement.public_inputs, "context": "attacker-chosen"},
+        )
+        assert forged_statement != statement
+        assert not await alice.verify_proof(forged_statement, proof)
+
     async def test_inconsistent_witness_raises(self) -> None:
         alice = _mk("alice")
         statement, _, _ = _credential()
@@ -296,3 +308,10 @@ def test_replay_error_is_distinct_from_audience_error() -> None:
     assert issubclass(ReplayError, Exception)
     assert issubclass(NotInAudienceError, Exception)
     assert ReplayError is not NotInAudienceError
+
+
+def test_package_export_resolves() -> None:
+    """Hidden users can import the Q9 plugin from the privacy package."""
+    from nest_plugins_reference.privacy import HybridX25519Privacy as ExportedHybrid
+
+    assert ExportedHybrid is HybridX25519Privacy
