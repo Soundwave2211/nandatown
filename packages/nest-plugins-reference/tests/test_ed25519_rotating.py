@@ -305,8 +305,11 @@ class TestDidKeyCompatibility:
             new_key_id=KeyId("wrong-key-id"),
             new_public_key=rec.new_public_key,
             issued_at=rec.issued_at,
-            continuity_signature=rec.continuity_signature,
+            continuity_signature=b"",
         )
+        tampered.continuity_signature = signer.sign_with(
+            tampered.continuity_message(), rec.old_key_id
+        ).value
 
         observer = _ident("observer")
         observer.register_peer(AgentId("signer"), old_pub)
