@@ -270,6 +270,8 @@ class CidFacts:
         proof = self._proofs.get(url)
         if meta is None or proof is None:
             return False
+        if proof.url != url:
+            return False
         if proof.signature.signer != meta.owner:
             return False
         if not self._identity.verify(

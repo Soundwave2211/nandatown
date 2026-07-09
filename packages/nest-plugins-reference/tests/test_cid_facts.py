@@ -353,6 +353,21 @@ class TestFreshness:
         assert url == url2
         assert await owner_facts.verify_freshness(url) is True
 
+    @pytest.mark.asyncio
+    async def test_freshness_proof_url_must_match_lookup_url(self) -> None:
+        """A proof object must internally attest the same content hash being verified."""
+        ident = DidKeyIdentity(AgentId("owner"), seed=b"s")
+        shared_datasets: dict[DataFactsUrl, DatasetMetadata] = {}
+        shared_proofs: dict[DataFactsUrl, FreshnessProof] = {}
+        facts = CidFacts(ident, datasets=shared_datasets, proofs=shared_proofs)
+        url = await facts.publish(DatasetMetadata(name="weather", owner=AgentId("owner")))
+        proof = facts.freshness_proof(url)
+        assert proof is not None
+        shared_proofs[url] = proof.model_copy(
+            update={"url": DataFactsUrl("df://sha256-" + "f" * 64)}
+        )
+        assert await facts.verify_freshness(url) is False
+
 
 # ---------------------------------------------------------------------------
 # Access control
@@ -450,3 +465,8 @@ class TestRegistry:
 
     def test_listed_for_datafacts_layer(self) -> None:
         assert ("datafacts", "cid_facts") in PluginRegistry().list_plugins("datafacts")
+
+    def test_package_export_resolves(self) -> None:
+        from nest_plugins_reference.datafacts import CidFacts as ExportedCidFacts
+
+        assert ExportedCidFacts is CidFacts

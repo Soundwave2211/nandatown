@@ -22,6 +22,18 @@ URL; permissive ACL.
 
 Source: [`nest_plugins_reference/datafacts/datafacts_v1.py`](../../packages/nest-plugins-reference/nest_plugins_reference/datafacts/datafacts_v1.py).
 
+## Additional reference plugins
+
+`cid_facts` — content-addressed dataset metadata using `df://sha256-<hex>`
+URLs, DAG provenance parents in `DatasetMetadata.metadata["parents"]`,
+content-hash-keyed ACLs, and owner-signed logical freshness proofs.
+
+Source: [`nest_plugins_reference/datafacts/cid_facts.py`](../../packages/nest-plugins-reference/nest_plugins_reference/datafacts/cid_facts.py).
+
+Scenario: [`provenance_supply_chain.yaml`](../../scenarios/provenance_supply_chain.yaml).
+
+Design note: [`q8_content_addressed_datafacts.md`](../q8_content_addressed_datafacts.md).
+
 ## Writing your own
 
 See [`writing-a-plugin.md`](../writing-a-plugin.md). Register under
