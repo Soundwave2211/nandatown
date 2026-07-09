@@ -50,6 +50,7 @@ where to look for inspiration.
 
 ## Hackathon implementation notes
 
+- **[hackathon_regression_matrix.md](hackathon_regression_matrix.md)** — Red/green proof that recent regression tests fail before their fixes and pass after.
 - **[q2_memory_crdt_lww.md](q2_memory_crdt_lww.md)** — LWW-register CRDT memory.
 - **[q4_auth_capability_delegation.md](q4_auth_capability_delegation.md)** — Delegatable capability-chain auth.
 - **[q5_identity_rotation.md](q5_identity_rotation.md)** — Ed25519 identity rotation.

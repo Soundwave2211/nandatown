@@ -387,6 +387,9 @@ adversarial cases, and exact verification command:
 | Q9 | Hybrid privacy | [`docs/q9_hybrid_privacy.md`](docs/q9_hybrid_privacy.md) |
 | Q10 | Proof-carrying HotStuff BFT | [`docs/q10_bft_hotstuff_proof.md`](docs/q10_bft_hotstuff_proof.md), [`docs/q10_verification.md`](docs/q10_verification.md) |
 
+Red/green evidence for the recent Q7-Q9 regression checks is captured in
+[`docs/hackathon_regression_matrix.md`](docs/hackathon_regression_matrix.md).
+
 Recent local verification used `Nanda.venv/bin/python`:
 
 ```bash
