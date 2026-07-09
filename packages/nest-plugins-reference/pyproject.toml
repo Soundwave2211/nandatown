@@ -45,6 +45,9 @@ cid_facts = "nest_plugins_reference.datafacts.cid_facts:CidFacts"
 [project.entry-points."nest.plugins.registry"]
 gossip = "nest_plugins_reference.registry.gossip:GossipRegistry"
 
+[project.entry-points."nest.plugins.auth"]
+delegatable = "nest_plugins_reference.auth.delegatable:DelegatableAuth"
+
 [project.entry-points."nest.plugins.failure_detector"]
 heartbeat = "nest_plugins_reference.failure_detection.heartbeat:HeartbeatFailureDetector"
 phi_accrual = "nest_plugins_reference.failure_detection.phi_accrual:PhiAccrualFailureDetector"

@@ -16,6 +16,7 @@ Example::
 
 from __future__ import annotations
 
+from nest_plugins_reference.validators.auth_validators import check_delegated_auth_attacks_blocked
 from nest_plugins_reference.validators.gossip_validators import (
     ConvergenceFailureError,
     PartitionLeakError,
@@ -35,6 +36,7 @@ __all__ = [
     "ConvergenceFailureError",
     "PartitionLeakError",
     "ValidatorReport",
+    "check_delegated_auth_attacks_blocked",
     "check_converged",
     "check_eavesdropper_blocked",
     "check_field_injection_rejected",

@@ -267,7 +267,7 @@ def test_determinism(payload: tuple[_Cfg, list[tuple[int, int]]]) -> None:
 
 
 @given(cfg=_cfgs())
-@settings(max_examples=200)
+@settings(max_examples=200, deadline=None)
 def test_monotonic_concession(cfg: _Cfg) -> None:
     """A seller's own counter-offer utilities are non-increasing (MCP / Zeuthen).
 

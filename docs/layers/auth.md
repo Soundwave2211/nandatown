@@ -21,6 +21,15 @@ shape (header.payload.sig), no claim validation beyond the signature.
 
 Source: [`nest_plugins_reference/auth/jwt_auth.py`](../../packages/nest-plugins-reference/nest_plugins_reference/auth/jwt_auth.py).
 
+## Delegatable capabilities
+
+`delegatable` — HMAC-chained capability tokens with
+`delegate(parent_token, audience, scopes_subset, ttl)`. Child tokens are bound
+to the parent token hash, must carry a strict subset of parent scopes, cannot
+outlive the parent, and fail verification when any ancestor is revoked.
+
+Source: [`nest_plugins_reference/auth/delegatable.py`](../../packages/nest-plugins-reference/nest_plugins_reference/auth/delegatable.py).
+
 ## Writing your own
 
 See [`writing-a-plugin.md`](../writing-a-plugin.md). Register under
