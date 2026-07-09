@@ -370,6 +370,49 @@ full cost model and how to reproduce.
 
 ---
 
+## Hackathon Implementation Notes
+
+This checkout includes proof-oriented hardening work for several hackathon
+problems. Each focused note describes the problem, implementation, invariants,
+adversarial cases, and exact verification command:
+
+| Problem | Area | Note |
+|---|---|---|
+| Q2 | Memory CRDT | [`docs/q2_memory_crdt_lww.md`](docs/q2_memory_crdt_lww.md) |
+| Q4 | Delegatable auth | [`docs/q4_auth_capability_delegation.md`](docs/q4_auth_capability_delegation.md) |
+| Q5 | Ed25519 identity rotation | [`docs/q5_identity_rotation.md`](docs/q5_identity_rotation.md) |
+| Q6 | Gossip registry | [`docs/q6_registry_gossip.md`](docs/q6_registry_gossip.md) |
+| Q7 | Multi-attribute negotiation | [`docs/q7_multi_attribute_negotiation.md`](docs/q7_multi_attribute_negotiation.md) |
+| Q8 | Content-addressed DataFacts | [`docs/q8_content_addressed_datafacts.md`](docs/q8_content_addressed_datafacts.md) |
+| Q9 | Hybrid privacy | [`docs/q9_hybrid_privacy.md`](docs/q9_hybrid_privacy.md) |
+| Q10 | Proof-carrying HotStuff BFT | [`docs/q10_bft_hotstuff_proof.md`](docs/q10_bft_hotstuff_proof.md), [`docs/q10_verification.md`](docs/q10_verification.md) |
+
+Recent local verification used `Nanda.venv/bin/python`:
+
+```bash
+Nanda.venv/bin/python -m pytest -q
+```
+
+Result: `861 passed, 1 skipped, 1 deselected, 1 warning`.
+
+Focused Q10 guard:
+
+```bash
+Nanda.venv/bin/python -m pytest \
+  packages/nest-core/tests/test_bft_hotstuff_scenario.py \
+  packages/nest-core/tests/test_failures.py \
+  packages/nest-plugins-reference/tests/test_hotstuff_plugin.py \
+  packages/nest-plugins-reference/tests/test_hotstuff_properties.py \
+  -q
+```
+
+Result: `68 passed`.
+
+Optional style/type tools (`ruff`, `pyright`, `mypy`) were not installed in
+`Nanda.venv` during this local pass.
+
+---
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding
@@ -395,51 +438,3 @@ Issues and pull requests are welcome at
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
-
-
-## README.md for project
-
-# HotStuff BFT Coordination Plugin
-
-## Problem
-
-Implements Q10:
-Partition-tolerant Byzantine Fault Tolerant consensus with view change and bounded post-heal liveness.
-
-Supports:
-
-- n = 7
-- f = 2 Byzantine agents
-- quorum = 5
-- 4/3 network partition
-- view change
-- post-heal recovery
-- structured proof-carrying trace
-
-## Design
-
-The implementation produces structured protocol evidence:
-
-- proposal
-- vote
-- quorum_certificate
-- commit
-- view_change
-- network_healed
-
-Validators replay accepted vote evidence rather than trusting success flags.
-
-## Validation
-
-Tests include:
-
-- conflicting commits
-- equivocation
-- forged quorum
-- partition recovery
-- metamorphic validator tests
-- compatibility tests
-
-Focused Q10 suite:
-
-68 passed

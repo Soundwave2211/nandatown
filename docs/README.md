@@ -47,3 +47,14 @@ where to look for inspiration.
   checks.
 - **[examples/](../examples/)** — Stub starting points for common
   plugin shapes.
+
+## Hackathon implementation notes
+
+- **[q2_memory_crdt_lww.md](q2_memory_crdt_lww.md)** — LWW-register CRDT memory.
+- **[q4_auth_capability_delegation.md](q4_auth_capability_delegation.md)** — Delegatable capability-chain auth.
+- **[q5_identity_rotation.md](q5_identity_rotation.md)** — Ed25519 identity rotation.
+- **[q6_registry_gossip.md](q6_registry_gossip.md)** — Gossip registry eventual consistency.
+- **[q7_multi_attribute_negotiation.md](q7_multi_attribute_negotiation.md)** — Pareto-aware multi-attribute negotiation.
+- **[q8_content_addressed_datafacts.md](q8_content_addressed_datafacts.md)** — Content-addressed DataFacts provenance.
+- **[q9_hybrid_privacy.md](q9_hybrid_privacy.md)** — Hybrid encryption and selective disclosure.
+- **[q10_bft_hotstuff_proof.md](q10_bft_hotstuff_proof.md)** and **[q10_verification.md](q10_verification.md)** — Proof-carrying HotStuff BFT.

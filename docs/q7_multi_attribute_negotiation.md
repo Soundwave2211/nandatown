@@ -56,5 +56,19 @@ PYTHONPYCACHEPREFIX=/tmp/nandatown-pycache Nanda.venv/bin/python -m compileall \
 
 ## Verification
 
-Focused Q7 tests and static checks should be run before submission. If shared
-validator or runner code changes, rerun the Q10 HotStuff guard suite as well.
+Focused Q7 tests passed locally: `21 passed`.
+
+Static compile passed:
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/nandatown-pycache Nanda.venv/bin/python -m compileall \
+  packages/nest-core/nest_core \
+  packages/nest-plugins-reference/nest_plugins_reference
+```
+
+Whitespace passed with `git diff --check`.
+
+The Q10 HotStuff guard suite also passed after the Q7 documentation/API-fit
+changes: `68 passed`.
+
+Optional `ruff`, `pyright`, and `mypy` were not installed in `Nanda.venv`.

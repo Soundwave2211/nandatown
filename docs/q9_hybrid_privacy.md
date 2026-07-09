@@ -59,5 +59,24 @@ PYTHONPYCACHEPREFIX=/tmp/nandatown-pycache Nanda.venv/bin/python -m compileall \
 
 ## Verification
 
-Focused Q9 tests and static checks should be run before submission. If shared
-scenario or validator plumbing changes, rerun the Q10 HotStuff guard suite.
+Focused Q9 tests passed locally: `35 passed`.
+
+The two Q9 regression checks added in this pass were also run against the
+pre-edit code and failed as expected: mismatched proof statements were accepted
+and the package export was missing.
+
+Static compile passed:
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/nandatown-pycache Nanda.venv/bin/python -m compileall \
+  packages/nest-core/nest_core \
+  packages/nest-plugins-reference/nest_plugins_reference
+```
+
+Whitespace passed with `git diff --check`.
+
+The Q10 HotStuff guard suite passed after Q9: `68 passed`.
+
+The full suite passed after Q9: `861 passed, 1 skipped, 1 deselected, 1 warning`.
+
+Optional `ruff`, `pyright`, and `mypy` were not installed in `Nanda.venv`.
