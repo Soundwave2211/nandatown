@@ -24,6 +24,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
+from nest_core.bft import compute_bft_parameters, quorum_for_f, unique_signers
+
 
 class ValidationResult:
     """Result of a protocol validation check."""
@@ -3521,51 +3523,459 @@ def validate_provenance_chain_unforgeable(
 _STUCK_VIEW_K_TICKS = 300
 
 
+def _bft_event(ev: dict[str, Any]) -> dict[str, Any]:
+    nested = ev.get("event")
+    if isinstance(nested, dict):
+        merged = {**ev, **nested}
+        merged.pop("event", None)
+        return merged
+    return ev
+
+
+def _bft_type(ev: dict[str, Any]) -> str:
+    event = _bft_event(ev)
+    typ = event.get("type")
+    if isinstance(typ, str):
+        return typ
+    if event.get("kind") == "partition_healed":
+        return "network_healed"
+    return str(event.get("kind", ""))
+
+
+def _bft_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _bft_ts(ev: dict[str, Any], idx: int) -> float:
+    try:
+        return float(_bft_event(ev).get("ts", idx))
+    except (TypeError, ValueError):
+        return float(idx)
+
+
+def _bft_agent(ev: dict[str, Any]) -> str:
+    event = _bft_event(ev)
+    return str(event.get("committer") or event.get("signer") or event.get("agent") or "")
+
+
+def _bft_round(ev: dict[str, Any]) -> int:
+    event = _bft_event(ev)
+    return _bft_int(event.get("round", event.get("height", event.get("view", 0))))
+
+
+def _bft_view(ev: dict[str, Any]) -> int:
+    event = _bft_event(ev)
+    return _bft_int(event.get("view", event.get("round", event.get("height", 0))))
+
+
+def _bft_phase(ev: dict[str, Any]) -> str:
+    return str(_bft_event(ev).get("phase") or "prepare")
+
+
+def _bft_value(ev: dict[str, Any]) -> str:
+    event = _bft_event(ev)
+    return str(event.get("block_hash") or event.get("value") or "")
+
+
+def _bft_commit_value(ev: dict[str, Any]) -> str:
+    event = _bft_event(ev)
+    return str(event.get("block_hash") or event.get("value") or "")
+
+
+def _bft_qc(ev: dict[str, Any]) -> dict[str, Any] | None:
+    event = _bft_event(ev)
+    qc = event.get("qc")
+    if isinstance(qc, dict):
+        return qc
+    if _bft_type(event) == "quorum_certificate":
+        return event
+    return None
+
+
+def _bft_signers(qc: dict[str, Any]) -> list[str]:
+    raw = qc.get("signers", [])
+    if isinstance(raw, list):
+        return [str(v) for v in raw]
+    if isinstance(raw, tuple):
+        return [str(v) for v in raw]
+    return []
+
+
+def _replay_bft_hotstuff_evidence(events: list[dict[str, Any]]) -> dict[str, Any]:
+    validators: set[str] = set()
+    honest: set[str] = set()
+    byzantine: set[str] = set()
+    accepted_votes: dict[tuple[str, int, int, str], set[str]] = defaultdict(set)
+    accepted_vote_events: list[dict[str, Any]] = []
+    rejected_votes: list[dict[str, Any]] = []
+    proposals: list[dict[str, Any]] = []
+    commits: list[dict[str, Any]] = []
+    qcs: list[dict[str, Any]] = []
+    partitions: list[dict[str, Any]] = []
+    view_changes: list[dict[str, Any]] = []
+    new_leaders: list[dict[str, Any]] = []
+    no_quorum: list[dict[str, Any]] = []
+    heal_ts: float | None = None
+    validators_from_config = False
+    config_fingerprint: tuple[Any, ...] | None = None
+    config_errors: list[str] = []
+    n = 0
+    f = 0
+    quorum = 0
+
+    for idx, raw in enumerate(events):
+        ev = _bft_event(raw)
+        typ = _bft_type(ev)
+        if typ == "protocol_config":
+            current_validators = tuple(
+                sorted(str(v) for v in ev.get("validators", []) if v is not None)
+            )
+            current_honest = tuple(
+                sorted(str(v) for v in ev.get("honest_validators", []) if v is not None)
+            )
+            current_byzantine = tuple(
+                sorted(str(v) for v in ev.get("byzantine_validators", []) if v is not None)
+            )
+            current_fingerprint = (
+                _bft_int(ev.get("n")),
+                _bft_int(ev.get("f")),
+                _bft_int(ev.get("quorum")),
+                current_validators,
+                current_honest,
+                current_byzantine,
+            )
+            if config_fingerprint is not None and current_fingerprint != config_fingerprint:
+                config_errors.append("inconsistent protocol_config evidence")
+            config_fingerprint = current_fingerprint
+            validators.update(current_validators)
+            validators_from_config = True
+            honest.update(current_honest)
+            byzantine.update(current_byzantine)
+            n = _bft_int(ev.get("n"), n)
+            f = _bft_int(ev.get("f"), f)
+            quorum = _bft_int(ev.get("quorum"), quorum)
+            continue
+        if typ == "partition_active":
+            partitions.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            continue
+        if typ in {"network_healed", "partition_healed"}:
+            heal_ts = _bft_ts(ev, idx)
+            continue
+        if typ == "view_change":
+            view_changes.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            continue
+        if typ == "new_leader":
+            new_leaders.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            continue
+        if typ == "no_quorum":
+            no_quorum.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            continue
+        if typ == "proposal":
+            proposals.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            continue
+        if typ == "rejected_vote":
+            rejected_votes.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            continue
+        if typ in {"vote", "accepted_vote"} and ev.get("accepted", True) is not False:
+            signer = str(ev.get("signer") or ev.get("voter") or ev.get("agent") or "")
+            if signer:
+                if not validators_from_config:
+                    validators.add(signer)
+                accepted_votes[(signer, _bft_round(ev), _bft_view(ev), _bft_phase(ev))].add(
+                    _bft_value(ev)
+                )
+                accepted_vote_events.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            continue
+        if typ == "quorum_certificate":
+            qcs.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            if not validators_from_config:
+                validators.update(_bft_signers(ev))
+            continue
+        if typ == "commit":
+            commits.append({**ev, "_idx": idx, "_ts": _bft_ts(ev, idx)})
+            committer = _bft_agent(ev)
+            if committer and not validators_from_config:
+                validators.add(committer)
+            qc = _bft_qc(ev)
+            if qc is not None and not validators_from_config:
+                validators.update(_bft_signers(qc))
+            continue
+
+        if raw.get("kind") != "send":
+            continue
+        msg = _message_body(raw)
+        if msg.startswith("vote:"):
+            parts = msg.split(":")
+            if len(parts) == 4:
+                signer = str(raw.get("agent", ""))
+                if signer:
+                    phase, view_s, block_hash = parts[1], parts[2], parts[3]
+                    accepted_votes[(signer, _bft_int(view_s), _bft_int(view_s), phase)].add(
+                        block_hash
+                    )
+                    accepted_vote_events.append(
+                        {
+                            "kind": "send",
+                            "type": "vote",
+                            "phase": phase,
+                            "round": _bft_int(view_s),
+                            "view": _bft_int(view_s),
+                            "value": block_hash,
+                            "block_hash": block_hash,
+                            "signer": signer,
+                            "_idx": idx,
+                            "_ts": _bft_ts(raw, idx),
+                        }
+                    )
+                    if not validators_from_config:
+                        validators.add(signer)
+            continue
+        if msg.startswith("prepare:"):
+            parts = msg.split(":", 4)
+            if len(parts) >= 4:
+                proposals.append(
+                    {
+                        "kind": "send",
+                        "type": "proposal",
+                        "round": _bft_int(parts[1]),
+                        "view": _bft_int(parts[1]),
+                        "value": parts[2],
+                        "block_hash": parts[2],
+                        "leader": str(raw.get("agent", "")),
+                        "_idx": idx,
+                        "_ts": _bft_ts(raw, idx),
+                    }
+                )
+            continue
+        if msg.startswith("qc:"):
+            parts = msg.split(":", 5)
+            if len(parts) == 6:
+                phase, view_s, block_hash, f_s, votes_s = (
+                    parts[1],
+                    parts[2],
+                    parts[3],
+                    parts[4],
+                    parts[5],
+                )
+                voters = [entry.partition("=")[0] for entry in votes_s.split(",") if entry]
+                f_value = _bft_int(f_s, f)
+                f = max(f, f_value)
+                qcs.append(
+                    {
+                        "phase": phase,
+                        "round": _bft_int(view_s),
+                        "view": _bft_int(view_s),
+                        "value": block_hash,
+                        "block_hash": block_hash,
+                        "signers": voters,
+                        "quorum": quorum_for_f(f_value),
+                        "_idx": idx,
+                        "_ts": _bft_ts(raw, idx),
+                    }
+                )
+                if not validators_from_config:
+                    validators.update(voters)
+            continue
+        if msg.startswith("result:") and ":committed:" in msg:
+            parts = msg.split(":")
+            if len(parts) >= 6:
+                commits.append(
+                    {
+                        "round": _bft_int(parts[1]),
+                        "view": _bft_int(parts[1]),
+                        "value": parts[4],
+                        "block_hash": parts[4],
+                        "committer": str(raw.get("agent", "")),
+                        "_idx": idx,
+                        "_ts": _bft_ts(raw, idx),
+                    }
+                )
+            continue
+
+    if not validators and n:
+        validators.update(f"replica-{i}" for i in range(n))
+    if not n:
+        n = len(validators)
+    if not f and n:
+        f = compute_bft_parameters(n).f
+    if not quorum and n:
+        quorum = quorum_for_f(f)
+    if not honest:
+        honest = set(validators) - byzantine
+
+    return {
+        "validators": validators,
+        "honest": honest,
+        "byzantine": byzantine,
+        "n": n,
+        "f": f,
+        "quorum": quorum,
+        "accepted_votes": accepted_votes,
+        "accepted_vote_events": accepted_vote_events,
+        "rejected_votes": rejected_votes,
+        "proposals": proposals,
+        "commits": commits,
+        "qcs": qcs,
+        "partitions": partitions,
+        "network_healed_ts": heal_ts,
+        "view_changes": view_changes,
+        "new_leaders": new_leaders,
+        "no_quorum": no_quorum,
+        "config_errors": config_errors,
+    }
+
+
+def _bft_commit_is_honest(commit: dict[str, Any], replay: dict[str, Any]) -> bool:
+    committer = _bft_agent(commit)
+    if commit.get("honest") is False:
+        return False
+    byzantine = cast("set[str]", replay["byzantine"])
+    honest = cast("set[str]", replay["honest"])
+    if committer in byzantine:
+        return False
+    return not honest or committer in honest
+
+
+def _bft_qc_failures(commit: dict[str, Any], replay: dict[str, Any]) -> list[str]:
+    qc = _bft_qc(commit)
+    if qc is None:
+        for candidate in cast("list[dict[str, Any]]", replay["qcs"]):
+            if (
+                _bft_round(candidate) == _bft_round(commit)
+                and _bft_view(candidate) == _bft_view(commit)
+                and _bft_value(candidate) == _bft_commit_value(commit)
+            ):
+                qc = candidate
+                break
+    if qc is None:
+        return ["commit missing qc"]
+    validators = cast("set[str]", replay["validators"])
+    votes = cast("dict[tuple[str, int, int, str], set[str]]", replay["accepted_votes"])
+    quorum = int(replay["quorum"])
+    signers = _bft_signers(qc)
+    unique = unique_signers(signers)
+    failures: list[str] = []
+    if len(unique) != len(signers):
+        failures.append("duplicate signer in QC")
+    if len(unique) < quorum:
+        failures.append(f"insufficient quorum: expected {quorum}, got {len(unique)}")
+    unknown = sorted(s for s in unique if validators and s not in validators)
+    if unknown:
+        failures.append(f"unknown signer in QC: {unknown}")
+
+    qc_round = _bft_round(qc)
+    qc_view = _bft_view(qc)
+    qc_phase = _bft_phase(qc)
+    qc_value = _bft_value(qc)
+    if qc_value != _bft_commit_value(commit):
+        failures.append("qc value != commit value")
+    if qc_round != _bft_round(commit):
+        failures.append("qc round != commit round")
+    if qc_view != _bft_view(commit):
+        failures.append("qc view != commit view")
+
+    for signer in sorted(unique):
+        values = votes.get((signer, qc_round, qc_view, qc_phase), set())
+        if not values:
+            failures.append(f"{signer} has no matching accepted vote")
+        elif qc_value not in values:
+            failures.append(f"{signer} voted for conflicting value {sorted(values)}")
+        if len(values) > 1:
+            failures.append(f"equivocated signer included in QC: {signer} {sorted(values)}")
+    return failures
+
+
+def _bft_liveness_chain_failures(
+    commit: dict[str, Any],
+    replay: dict[str, Any],
+    baseline: float,
+) -> list[str]:
+    failures: list[str] = []
+    commit_ts = float(commit.get("_ts", 0.0))
+    commit_round = _bft_round(commit)
+    commit_view = _bft_view(commit)
+    commit_value = _bft_commit_value(commit)
+    qc = _bft_qc(commit)
+    qc_phase = _bft_phase(qc or {})
+
+    new_leaders = cast("list[dict[str, Any]]", replay["new_leaders"])
+    if not any(baseline <= float(ev.get("_ts", 0.0)) <= commit_ts for ev in new_leaders):
+        failures.append("no post-heal new_leader before commit")
+
+    proposals = cast("list[dict[str, Any]]", replay["proposals"])
+    if not any(
+        baseline <= float(ev.get("_ts", 0.0)) <= commit_ts
+        and _bft_round(ev) == commit_round
+        and _bft_view(ev) == commit_view
+        and _bft_value(ev) == commit_value
+        for ev in proposals
+    ):
+        failures.append("no matching post-heal proposal before commit")
+
+    qcs = cast("list[dict[str, Any]]", replay["qcs"])
+    if not any(
+        baseline <= float(ev.get("_ts", 0.0)) <= commit_ts
+        and _bft_round(ev) == commit_round
+        and _bft_view(ev) == commit_view
+        and _bft_value(ev) == commit_value
+        for ev in qcs
+    ):
+        failures.append("no matching post-heal quorum_certificate before commit")
+
+    vote_events = cast("list[dict[str, Any]]", replay["accepted_vote_events"])
+    post_heal_signers = {
+        str(ev.get("signer") or ev.get("voter") or ev.get("agent"))
+        for ev in vote_events
+        if baseline <= float(ev.get("_ts", 0.0)) <= commit_ts
+        and _bft_round(ev) == commit_round
+        and _bft_view(ev) == commit_view
+        and _bft_phase(ev) == qc_phase
+        and _bft_value(ev) == commit_value
+    }
+    if len(post_heal_signers) < int(replay["quorum"]):
+        failures.append(
+            f"only {len(post_heal_signers)} post-heal accepted votes, "
+            f"needed {int(replay['quorum'])}"
+        )
+    return failures
+
+
 def validate_bft_no_conflicting_commits(
     events: list[dict[str, Any]],
 ) -> list[ValidationResult]:
-    """No two honest replicas commit conflicting values for the same view.
-
-    Reads ``result:<view>:committed:<accepts>/<total>:<block_hash>:<value>``
-    lines, each announced independently by the replica that observed the
-    commit QC (not just the leader's say-so). Conflicts are keyed on
-    ``block_hash`` -- the field that comes straight from the commit QC and
-    is therefore identical across every honest replica for a given view --
-    rather than ``value``, since a replica that only saw the commit QC (not
-    the original PREPARE, e.g. after being partitioned away) may not know
-    the plaintext value but still agrees on the hash. A trace with zero
-    commits is itself a failure -- it means no quorum-backed progress was
-    ever observed, which is also why this validator FAILS against a
-    ``contract_net``-coordinated trace (no ``result:...committed`` lines
-    exist at all).
+    """No two honest replicas commit conflicting values for one round.
 
     Example::
 
         results = validate_bft_no_conflicting_commits(events)
     """
-    commits_by_view: dict[str, dict[str, str]] = defaultdict(dict)
-    for ev in events:
-        if ev.get("kind") != "send":
-            continue
-        msg = _message_body(ev)
-        if not msg.startswith("result:"):
-            continue
-        parts = msg.split(":")
-        if len(parts) < 6 or parts[2] != "committed":
-            continue
-        view, block_hash_hex = parts[1], parts[4]
-        commits_by_view[view][str(ev.get("agent", ""))] = block_hash_hex
-
-    if not commits_by_view:
+    replay = _replay_bft_hotstuff_evidence(events)
+    commits = [c for c in replay["commits"] if _bft_commit_is_honest(c, replay)]
+    if not commits:
         return [
             ValidationResult("bft_no_conflicting_commits", False, "no commits observed in trace")
         ]
 
+    by_round: dict[int, dict[str, str]] = defaultdict(dict)
+    by_round_view: dict[tuple[int, int], dict[str, str]] = defaultdict(dict)
+    for commit in commits:
+        committer = _bft_agent(commit)
+        value = _bft_commit_value(commit)
+        by_round[_bft_round(commit)][committer] = value
+        by_round_view[(_bft_round(commit), _bft_view(commit))][committer] = value
+
     violations: list[str] = []
-    for view, by_agent in commits_by_view.items():
+    for round_id, by_agent in by_round.items():
         distinct = set(by_agent.values())
         if len(distinct) > 1:
-            violations.append(f"view {view}: conflicting commits {by_agent}")
+            violations.append(f"round {round_id}: conflicting commits {by_agent}")
+    for (round_id, view), by_agent in by_round_view.items():
+        distinct = set(by_agent.values())
+        if len(distinct) > 1:
+            violations.append(f"round {round_id} view {view}: conflicting commits {by_agent}")
 
     if violations:
         return [ValidationResult("bft_no_conflicting_commits", False, "; ".join(violations))]
@@ -3573,7 +3983,29 @@ def validate_bft_no_conflicting_commits(
         ValidationResult(
             "bft_no_conflicting_commits",
             True,
-            f"checked {len(commits_by_view)} committed view(s), no conflicts",
+            f"checked {len(commits)} honest commit(s), no conflicts",
+        )
+    ]
+
+
+def validate_bft_protocol_config_consistent(
+    events: list[dict[str, Any]],
+) -> list[ValidationResult]:
+    """Duplicate protocol_config records must agree exactly.
+
+    Example::
+
+        results = validate_bft_protocol_config_consistent(events)
+    """
+    replay = _replay_bft_hotstuff_evidence(events)
+    errors = cast("list[str]", replay["config_errors"])
+    if errors:
+        return [ValidationResult("bft_protocol_config_consistent", False, "; ".join(errors))]
+    return [
+        ValidationResult(
+            "bft_protocol_config_consistent",
+            True,
+            "protocol_config evidence is absent or internally consistent",
         )
     ]
 
@@ -3581,35 +4013,32 @@ def validate_bft_no_conflicting_commits(
 def validate_bft_no_equivocation(
     events: list[dict[str, Any]],
 ) -> list[ValidationResult]:
-    """No leader sends two different PREPARE proposals in the same view.
-
-    Reads ``prepare:<view>:<block_hash>:<value>:<justify_qc>`` lines, grouped
-    by ``(sender, view)``. More than one distinct ``block_hash`` from the
-    same sender in the same view means that leader equivocated.
+    """No signer has two accepted votes for one round/view/phase.
 
     Example::
 
         results = validate_bft_no_equivocation(events)
     """
-    hashes_by_leader_view: dict[tuple[str, str], set[str]] = defaultdict(set)
-    for ev in events:
-        if ev.get("kind") != "send":
-            continue
-        msg = _message_body(ev)
-        if not msg.startswith("prepare:"):
-            continue
-        parts = msg.split(":", 4)
-        if len(parts) < 3:
-            continue
-        view, block_hash_hex = parts[1], parts[2]
-        key = (str(ev.get("agent", "")), view)
-        hashes_by_leader_view[key].add(block_hash_hex)
-
-    violations = [
-        f"leader {leader} view {view}: sent conflicting proposals {hashes}"
-        for (leader, view), hashes in hashes_by_leader_view.items()
-        if len(hashes) > 1
-    ]
+    replay = _replay_bft_hotstuff_evidence(events)
+    votes = cast("dict[tuple[str, int, int, str], set[str]]", replay["accepted_votes"])
+    violations = []
+    for (signer, round_id, view, phase), values in votes.items():
+        if len(values) > 1:
+            violations.append(
+                f"signer {signer} round {round_id} view {view} phase {phase}: "
+                f"accepted conflicting values {sorted(values)}"
+            )
+    for qc in replay["qcs"]:
+        phase = _bft_phase(qc)
+        round_id = _bft_round(qc)
+        view = _bft_view(qc)
+        for signer in _bft_signers(qc):
+            values = votes.get((signer, round_id, view, phase), set())
+            if len(values) > 1:
+                violations.append(
+                    f"qc includes equivocated signer {signer} round {round_id} "
+                    f"view {view} phase {phase}: {sorted(values)}"
+                )
 
     if violations:
         return [ValidationResult("bft_no_equivocation", False, "; ".join(violations))]
@@ -3617,7 +4046,7 @@ def validate_bft_no_equivocation(
         ValidationResult(
             "bft_no_equivocation",
             True,
-            f"checked {len(hashes_by_leader_view)} (leader, view) proposal(s), no equivocation",
+            f"checked {len(votes)} accepted vote slot(s), no effective equivocation",
         )
     ]
 
@@ -3625,46 +4054,33 @@ def validate_bft_no_equivocation(
 def validate_bft_forged_quorum(
     events: list[dict[str, Any]],
 ) -> list[ValidationResult]:
-    """Every broadcast commit QC is backed by >= 2f+1 distinct signers.
-
-    Reads ``qc:<phase>:<view>:<block_hash>:<f>:<voter1>=<sig1>,...`` lines.
-    Distinct voter tokens are counted after deduplication, so padding the
-    same signer twice to inflate the count is itself caught as a forgery.
+    """Every commit is backed by a reconstructable quorum certificate.
 
     Example::
 
         results = validate_bft_forged_quorum(events)
     """
+    replay = _replay_bft_hotstuff_evidence(events)
     violations: list[str] = []
-    checked = 0
-    for ev in events:
-        if ev.get("kind") != "send":
-            continue
-        msg = _message_body(ev)
-        if not msg.startswith("qc:"):
-            continue
-        parts = msg.split(":", 5)
-        if len(parts) != 6:
-            continue
-        phase, view, block_hash_hex, f_str, votes_str = (
-            parts[1],
-            parts[2],
-            parts[3],
-            parts[4],
-            parts[5],
-        )
-        try:
-            f_value = int(f_str)
-        except ValueError:
-            continue
-        required = 2 * f_value + 1
-        voters = {entry.partition("=")[0] for entry in votes_str.split(",") if entry}
-        checked += 1
-        if len(voters) < required:
-            violations.append(
-                f"{phase} qc view {view} block {block_hash_hex}: "
-                f"{len(voters)} distinct signers, needed {required}"
-            )
+    checked = len(replay["commits"])
+    if checked:
+        for commit in replay["commits"]:
+            failures = _bft_qc_failures(commit, replay)
+            if failures:
+                violations.append(
+                    f"commit round {_bft_round(commit)} view {_bft_view(commit)} "
+                    f"by {_bft_agent(commit)}: {'; '.join(failures)}"
+                )
+    else:
+        for qc in replay["qcs"]:
+            signers = _bft_signers(qc)
+            unique = unique_signers(signers)
+            quorum = int(qc.get("quorum") or replay["quorum"])
+            checked += 1
+            if len(unique) != len(signers):
+                violations.append("duplicate signer in QC")
+            if len(unique) < quorum:
+                violations.append(f"insufficient quorum: expected {quorum}, got {len(unique)}")
 
     if violations:
         return [ValidationResult("bft_forged_quorum", False, "; ".join(violations))]
@@ -3672,7 +4088,7 @@ def validate_bft_forged_quorum(
         ValidationResult(
             "bft_forged_quorum",
             True,
-            f"checked {checked} broadcast QC(s), all backed by a real quorum",
+            f"checked {checked} commit/QC proof(s), all backed by accepted votes",
         )
     ]
 
@@ -3680,49 +4096,137 @@ def validate_bft_forged_quorum(
 def validate_bft_no_stuck_view(
     events: list[dict[str, Any]],
 ) -> list[ValidationResult]:
-    """Commit progress resumes within K ticks of the network healing.
-
-    Baseline is the simulator's ``partition_healed`` marker if present,
-    else ``ts=0`` (so the same validator also covers the byzantine scenario,
-    which has no partition). Fails if no ``result:...committed`` line
-    appears within ``_STUCK_VIEW_K_TICKS`` ticks after the baseline.
+    """Commit progress resumes within a bounded window after healing.
 
     Example::
 
         results = validate_bft_no_stuck_view(events)
     """
-    baseline = 0.0
-    for ev in events:
-        if ev.get("kind") == "partition_healed":
-            baseline = float(ev.get("ts", 0.0))
-            break
-
-    commit_ticks: list[float] = []
-    for ev in events:
-        if ev.get("kind") != "send":
-            continue
-        msg = _message_body(ev)
-        if msg.startswith("result:") and ":committed:" in msg:
-            commit_ticks.append(float(ev.get("ts", 0.0)))
-
-    if not commit_ticks:
+    replay = _replay_bft_hotstuff_evidence(events)
+    commits = cast("list[dict[str, Any]]", replay["commits"])
+    if not commits:
         return [ValidationResult("bft_no_stuck_view", False, "no commits observed in trace")]
-
-    window_end = baseline + _STUCK_VIEW_K_TICKS
-    in_window = [t for t in commit_ticks if baseline <= t <= window_end]
+    n = int(replay["n"])
+    bound = max(2 * n + 3, 20) if n else _STUCK_VIEW_K_TICKS
+    baseline = replay["network_healed_ts"]
+    if baseline is None:
+        baseline = 0.0
+    valid_commit_ts: list[float] = []
+    valid_chain_failures: list[str] = []
+    for commit in commits:
+        if _bft_qc_failures(commit, replay):
+            continue
+        ts = float(commit.get("_ts", 0.0))
+        if ts >= float(baseline):
+            if replay["network_healed_ts"] is not None:
+                chain_failures = _bft_liveness_chain_failures(commit, replay, float(baseline))
+                if chain_failures:
+                    valid_chain_failures.append(
+                        f"commit at ts={ts}: {'; '.join(chain_failures)}"
+                    )
+                    continue
+            valid_commit_ts.append(ts)
+    if not valid_commit_ts:
+        detail = "; ".join(valid_chain_failures) if valid_chain_failures else "no valid commit followed"
+        return [
+            ValidationResult(
+                "bft_no_stuck_view",
+                False,
+                f"network healed at ts/index {baseline}, but {detail}",
+            )
+        ]
+    window_end = float(baseline) + bound
+    in_window = [t for t in valid_commit_ts if t <= window_end]
     if not in_window:
         return [
             ValidationResult(
                 "bft_no_stuck_view",
                 False,
-                f"no commit within {_STUCK_VIEW_K_TICKS} ticks of baseline ts={baseline}",
+                f"network healed at ts/index {baseline}, but no valid commit within bound {bound}",
             )
         ]
     return [
         ValidationResult(
             "bft_no_stuck_view",
             True,
-            f"commit progress resumed at ts={min(in_window)} (baseline ts={baseline})",
+            f"commit progress resumed at ts={min(in_window)} (baseline ts={baseline}, bound {bound})",
+        )
+    ]
+
+
+def validate_bft_no_partition_quorum_before_heal(
+    events: list[dict[str, Any]],
+) -> list[ValidationResult]:
+    """No valid commit is accepted while a declared partition prevents quorum.
+
+    Example::
+
+        results = validate_bft_no_partition_quorum_before_heal(events)
+    """
+    replay = _replay_bft_hotstuff_evidence(events)
+    partitions = cast("list[dict[str, Any]]", replay["partitions"])
+    heal_ts = replay["network_healed_ts"]
+    if not partitions or heal_ts is None:
+        return [
+            ValidationResult(
+                "bft_no_partition_quorum_before_heal",
+                True,
+                "no explicit partition/heal evidence to check",
+            )
+        ]
+
+    components_raw = partitions[0].get("components", [])
+    components: list[set[str]] = []
+    if isinstance(components_raw, list):
+        for group in components_raw:
+            if isinstance(group, list):
+                components.append({str(item) for item in group})
+    if not components:
+        return [
+            ValidationResult(
+                "bft_no_partition_quorum_before_heal",
+                True,
+                "partition evidence had no machine-checkable components",
+            )
+        ]
+
+    quorum = int(replay["quorum"])
+    violations: list[str] = []
+    for commit in cast("list[dict[str, Any]]", replay["commits"]):
+        if float(commit.get("_ts", 0.0)) >= float(heal_ts):
+            continue
+        qc = _bft_qc(commit)
+        if qc is None:
+            violations.append(
+                f"commit before heal at ts={commit.get('_ts')} has no QC evidence"
+            )
+            continue
+        signers = set(_bft_signers(qc))
+        containing = [idx for idx, group in enumerate(components) if signers & group]
+        if len(containing) > 1:
+            violations.append(
+                f"commit before heal at ts={commit.get('_ts')} uses cross-partition "
+                f"signers {sorted(signers)}"
+            )
+        elif containing and len(signers) >= quorum and len(components[containing[0]]) < quorum:
+            violations.append(
+                f"commit before heal at ts={commit.get('_ts')} claims quorum {sorted(signers)} "
+                f"inside component of size {len(components[containing[0]])}"
+            )
+
+    if violations:
+        return [
+            ValidationResult(
+                "bft_no_partition_quorum_before_heal",
+                False,
+                "; ".join(violations),
+            )
+        ]
+    return [
+        ValidationResult(
+            "bft_no_partition_quorum_before_heal",
+            True,
+            "no pre-heal partition commit used unreachable quorum evidence",
         )
     ]
 
@@ -4118,10 +4622,12 @@ VALIDATORS: dict[str, list[Any]] = {
         validate_provenance_chain_unforgeable,
     ],
     "bft_hotstuff": [
+        validate_bft_protocol_config_consistent,
         validate_bft_no_conflicting_commits,
         validate_bft_no_equivocation,
         validate_bft_forged_quorum,
         validate_bft_no_stuck_view,
+        validate_bft_no_partition_quorum_before_heal,
     ],
     "escrow_marketplace": [
         validate_escrow_state_machine,

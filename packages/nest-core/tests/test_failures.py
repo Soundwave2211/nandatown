@@ -125,6 +125,37 @@ class TestNetworkPartition:
 
 class TestByzantineAgents:
     @pytest.mark.asyncio
+    async def test_zero_byzantine_fraction_selects_none(self, tmp_path: Path) -> None:
+        sim = Simulator(seed=42, trace_path=tmp_path / "t.jsonl", byzantine_fraction=0.0)
+        for idx in range(7):
+            sim.add_agent(AgentId(f"replica-{idx}"), PingAgent(AgentId("replica-0"), rounds=1))
+
+        await sim.run(max_ticks=1)
+
+        assert len(sim.byzantine_agents) == 0
+
+    @pytest.mark.asyncio
+    async def test_fractional_byzantine_count_rounds_up_for_q10(self, tmp_path: Path) -> None:
+        sim = Simulator(seed=42, trace_path=tmp_path / "t.jsonl", byzantine_fraction=0.28)
+        for idx in range(7):
+            sim.add_agent(AgentId(f"replica-{idx}"), PingAgent(AgentId("replica-0"), rounds=1))
+
+        await sim.run(max_ticks=1)
+
+        assert len(sim.byzantine_agents) == 2
+
+    @pytest.mark.asyncio
+    async def test_tiny_positive_byzantine_fraction_selects_one(self, tmp_path: Path) -> None:
+        sim = Simulator(seed=42, trace_path=tmp_path / "t.jsonl", byzantine_fraction=0.01)
+        for idx in range(7):
+            sim.add_agent(AgentId(f"replica-{idx}"), PingAgent(AgentId("replica-0"), rounds=1))
+
+        await sim.run(max_ticks=1)
+
+        assert len(sim.byzantine_agents) == 1
+
+
+    @pytest.mark.asyncio
     async def test_byzantine_corrupts_payload(self, tmp_path: Path) -> None:
         trace_file = tmp_path / "t.jsonl"
         sim = Simulator(

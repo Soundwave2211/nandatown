@@ -14,9 +14,10 @@ Example::
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass, field
+from math import ceil
 from pathlib import Path
+import random
 from typing import Any
 
 from nest_core.sim.agent import AgentContext, StateMachineAgent
@@ -44,6 +45,30 @@ class _CorrelationCounter:
     def next(self) -> CorrelationId:
         self._count += 1
         return CorrelationId(f"corr-{self._count}")
+
+
+def _resolve_failure_count(fraction: float, total_agents: int) -> int:
+    """Resolve a fractional failure rate into a deterministic agent count.
+
+    Semantics are intentionally explicit:
+
+    * ``0.0`` selects no agents;
+    * ``0.0 < fraction <= 1.0`` selects ``ceil(total_agents * fraction)``;
+    * the result is clamped to ``total_agents``.
+
+    Example::
+
+        count = _resolve_failure_count(0.28, 7)
+    """
+    if fraction < 0.0:
+        msg = f"failure fraction must be non-negative: {fraction}"
+        raise ValueError(msg)
+    if total_agents < 0:
+        msg = f"total_agents must be non-negative: {total_agents}"
+        raise ValueError(msg)
+    if fraction == 0.0 or total_agents == 0:
+        return 0
+    return min(total_agents, max(1, ceil(total_agents * fraction)))
 
 
 class _SimAgentContext:
@@ -126,6 +151,19 @@ class _SimAgentContext:
                 payload=payload,
             )
         )
+
+    def record_event(self, event: dict[str, Any]) -> None:
+        """Record a structured protocol event with simulator time metadata.
+
+        Example::
+
+            ctx.record_event({"type": "proposal", "view": 1})
+        """
+        if self._trace is None:
+            return
+        rec = {"ts": self._clock.now, "agent": str(self._agent_id), "kind": "evidence"}
+        rec.update(event)
+        self._trace.record(rec)
 
 
 # Verify _SimAgentContext satisfies the protocol at import time
@@ -221,6 +259,16 @@ class Simulator:
         """
         return self._dropped_count
 
+    @property
+    def byzantine_agents(self) -> set[AgentId]:
+        """Agents selected for Byzantine payload corruption.
+
+        Example::
+
+            selected = sim.byzantine_agents
+        """
+        return set(self._byzantine_agents)
+
     def add_agent(self, agent_id: AgentId, agent: StateMachineAgent) -> None:
         """Register an agent for the simulation.
 
@@ -241,7 +289,7 @@ class Simulator:
         all_ids = list(self._agents.keys())
 
         if self._byzantine_fraction > 0:
-            n_byzantine = max(1, int(len(all_ids) * self._byzantine_fraction))
+            n_byzantine = _resolve_failure_count(self._byzantine_fraction, len(all_ids))
             shuffled = list(all_ids)
             self._failure_rng.shuffle(shuffled)
             self._byzantine_agents = set(shuffled[:n_byzantine])
@@ -322,6 +370,8 @@ class Simulator:
                             "ts": self._clock.now,
                             "agent": "_simulator",
                             "kind": "partition_healed",
+                            "type": "network_healed",
+                            "step": self._tick_count,
                         }
                     )
 

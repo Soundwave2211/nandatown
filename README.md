@@ -395,3 +395,51 @@ Issues and pull requests are welcome at
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
+
+
+## README.md for project
+
+# HotStuff BFT Coordination Plugin
+
+## Problem
+
+Implements Q10:
+Partition-tolerant Byzantine Fault Tolerant consensus with view change and bounded post-heal liveness.
+
+Supports:
+
+- n = 7
+- f = 2 Byzantine agents
+- quorum = 5
+- 4/3 network partition
+- view change
+- post-heal recovery
+- structured proof-carrying trace
+
+## Design
+
+The implementation produces structured protocol evidence:
+
+- proposal
+- vote
+- quorum_certificate
+- commit
+- view_change
+- network_healed
+
+Validators replay accepted vote evidence rather than trusting success flags.
+
+## Validation
+
+Tests include:
+
+- conflicting commits
+- equivocation
+- forged quorum
+- partition recovery
+- metamorphic validator tests
+- compatibility tests
+
+Focused Q10 suite:
+
+68 passed

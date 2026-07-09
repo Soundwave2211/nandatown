@@ -7,12 +7,14 @@ import random
 from typing import Any
 
 import pytest
+from nest_core.plugins import PluginRegistry
 from nest_core.scenarios_builtin.bft_hotstuff import (
     MaliciousLeaderAgent,
     ReplicaAgent,
     instantiate_identity,
 )
 from nest_core.types import AgentId, Task
+from nest_core.validators import validate_bft_forged_quorum, validate_bft_no_conflicting_commits
 from nest_plugins_reference.coordination import hotstuff_wire
 from nest_plugins_reference.coordination.hotstuff import HotStuff
 from nest_plugins_reference.coordination.hotstuff_wire import QuorumCert, VoteRecord
@@ -52,6 +54,12 @@ def _make_identities(replica_ids: list[AgentId]) -> dict[AgentId, DidKeyIdentity
 
 
 class TestHotStuffCoordinationWrapper:
+    def test_registry_resolves_hotstuff_coordination_plugin(self) -> None:
+        cls = PluginRegistry().resolve("coordination", "hotstuff")
+        assert cls is HotStuff
+        for method in ("propose", "participate", "resolve", "commit"):
+            assert callable(getattr(cls, method))
+
     @pytest.mark.asyncio
     async def test_propose_participate_resolve_commit(self) -> None:
         leader = HotStuff(AgentId("r0"), f=1)
@@ -79,6 +87,110 @@ class TestHotStuffCoordinationWrapper:
 
         outcome = await leader.resolve(rnd)
         assert outcome.winner is None
+
+    @pytest.mark.asyncio
+    async def test_four_of_seven_votes_do_not_form_qc(self) -> None:
+        replicas = [AgentId(f"r{i}") for i in range(7)]
+        leader = HotStuff(replicas[0], f=2, replica_ids=replicas)
+        rnd = await leader.propose(Task(id="t1", description="agree"))
+
+        for rid in replicas[:4]:
+            await HotStuff(rid, f=2, replica_ids=replicas).participate(rnd)
+
+        outcome = await leader.resolve(rnd)
+        assert outcome.winner is None
+        assert outcome.metadata["qc"] is None
+
+    @pytest.mark.asyncio
+    async def test_five_unique_votes_form_qc_and_commit(self) -> None:
+        replicas = [AgentId(f"r{i}") for i in range(7)]
+        leader = HotStuff(replicas[0], f=2, replica_ids=replicas)
+        rnd = await leader.propose(Task(id="t1", description="agree"))
+
+        for rid in replicas[:5]:
+            await HotStuff(rid, f=2, replica_ids=replicas).participate(rnd)
+
+        outcome = await leader.resolve(rnd)
+        assert outcome.winner == replicas[0]
+        qc = outcome.metadata["qc"]
+        assert qc is not None
+        assert len(set(qc["signers"])) == 5
+        await leader.commit(outcome)
+        assert leader.committed_qcs == [qc]
+
+    @pytest.mark.asyncio
+    async def test_plugin_generated_trace_replays_through_bft_validators(self) -> None:
+        replicas = [AgentId(f"r{i}") for i in range(7)]
+        leader = HotStuff(replicas[0], f=2, replica_ids=replicas)
+        rnd = await leader.propose(Task(id="t1", description="agree"))
+        for rid in replicas[:5]:
+            await HotStuff(rid, f=2, replica_ids=replicas).participate(rnd)
+
+        outcome = await leader.resolve(rnd)
+        await leader.commit(outcome)
+        trace = leader.get_trace()
+
+        assert validate_bft_forged_quorum(trace)[0].passed is True
+        assert validate_bft_no_conflicting_commits(trace)[0].passed is True
+
+    @pytest.mark.asyncio
+    async def test_duplicate_vote_does_not_increase_quorum(self) -> None:
+        replicas = [AgentId(f"r{i}") for i in range(7)]
+        leader = HotStuff(replicas[0], f=2, replica_ids=replicas)
+        voter = HotStuff(replicas[1], f=2, replica_ids=replicas)
+        rnd = await leader.propose(Task(id="t1", description="agree"))
+
+        await voter.participate(rnd)
+        await voter.participate(rnd)
+
+        outcome = await leader.resolve(rnd)
+        assert outcome.winner is None
+        assert len(rnd.metadata["votes"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_conflicting_duplicate_vote_is_not_counted(self) -> None:
+        replicas = [AgentId(f"r{i}") for i in range(7)]
+        leader = HotStuff(replicas[0], f=2, replica_ids=replicas)
+        rnd = await leader.propose(Task(id="t1", description="agree"))
+        for rid in replicas[:5]:
+            await HotStuff(rid, f=2, replica_ids=replicas).participate(rnd)
+        rnd.metadata["votes"].append(
+            {
+                "voter": str(replicas[0]),
+                "signer": str(replicas[0]),
+                "value": "reject",
+                "round": 0,
+                "view": 0,
+                "phase": "prepare",
+                "accepted": True,
+            }
+        )
+
+        outcome = await leader.resolve(rnd)
+        assert outcome.winner is None
+        assert outcome.metadata["qc"] is None
+
+    @pytest.mark.asyncio
+    async def test_commit_without_qc_fails(self) -> None:
+        leader = HotStuff(AgentId("r0"), f=2)
+        rnd = await leader.propose(Task(id="t1", description="agree"))
+        outcome = await leader.resolve(rnd)
+
+        with pytest.raises(ValueError, match="without quorum certificate"):
+            await leader.commit(outcome)
+
+    @pytest.mark.asyncio
+    async def test_commit_with_mismatched_qc_fails(self) -> None:
+        replicas = [AgentId(f"r{i}") for i in range(7)]
+        leader = HotStuff(replicas[0], f=2, replica_ids=replicas)
+        rnd = await leader.propose(Task(id="t1", description="agree"))
+        for rid in replicas[:5]:
+            await HotStuff(rid, f=2, replica_ids=replicas).participate(rnd)
+        outcome = await leader.resolve(rnd)
+        outcome.metadata["qc"]["value"] = "reject"
+
+        with pytest.raises(ValueError, match="does not match"):
+            await leader.commit(outcome)
 
 
 # ---------------------------------------------------------------------------

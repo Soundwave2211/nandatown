@@ -103,6 +103,15 @@ class AgentContext(Protocol):
         """
         ...
 
+    def record_event(self, event: dict[str, Any]) -> None:
+        """Record a structured protocol event in the current trace.
+
+        Example::
+
+            ctx.record_event({"type": "proposal", "view": 1})
+        """
+        ...
+
 
 class StateMachineAgent:
     """Base class for Tier 1 state-machine agents.

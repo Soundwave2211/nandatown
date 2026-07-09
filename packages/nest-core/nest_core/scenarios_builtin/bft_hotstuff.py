@@ -27,13 +27,13 @@ Example::
 """
 
 from __future__ import annotations
-
 from collections.abc import Sequence
 from typing import Any
 
 from nest_plugins_reference.coordination import hotstuff_wire
 from nest_plugins_reference.coordination.hotstuff_wire import QuorumCert, VoteRecord
 
+from nest_core.bft import make_vote_id, quorum_for_f
 from nest_core.scenario import ScenarioConfig
 from nest_core.sim.agent import AgentContext, StateMachineAgent
 from nest_core.types import AgentId, Signature
@@ -53,12 +53,18 @@ class ReplicaAgent(StateMachineAgent):
         replica_ids: Sequence[AgentId],
         f: int,
         view_timeout_ticks: int = 40,
+        partition_groups: Sequence[Sequence[str]] | None = None,
+        partition_heal_at_tick: int | None = None,
+        malicious_agents: set[str] | None = None,
     ) -> None:
         self._agent_id = agent_id
         self._replica_ids = sorted(replica_ids)
         self._f = f
-        self._quorum = 2 * f + 1
+        self._quorum = quorum_for_f(f)
         self._view_timeout_ticks = view_timeout_ticks
+        self._partition_groups = [list(group) for group in partition_groups or []]
+        self._partition_heal_at_tick = partition_heal_at_tick
+        self._malicious_agents = set(malicious_agents or set())
         self._current_view = 0
         self._locked_qc: QuorumCert | None = None
         self._voted_prepare: dict[int, str] = {}
@@ -71,6 +77,47 @@ class ReplicaAgent(StateMachineAgent):
         self._proposed_for_view: set[int] = set()
         self._committed: dict[int, tuple[str, int, int]] = {}
         self._current_value_for_view: dict[int, str] = {}
+
+    def _record(self, ctx: AgentContext, event_type: str, **fields: Any) -> None:
+        recorder = getattr(ctx, "record_event", None)
+        if recorder is None:
+            return
+        event: dict[str, Any] = {
+            "type": event_type,
+            "step": int(ctx.time),
+        }
+        event.update(fields)
+        recorder(event)
+
+    def _vote_id(self, phase: str, view: int, voter: AgentId, value: str) -> str:
+        return make_vote_id(view, view, phase, voter, value)
+
+    def _qc_to_dict(self, qc: QuorumCert | None) -> dict[str, Any] | None:
+        if qc is None:
+            return None
+        vote_ids = [
+            self._vote_id(qc.phase, qc.view, AgentId(v.voter), qc.block_hash) for v in qc.votes
+        ]
+        return {
+            "phase": qc.phase,
+            "round": qc.view,
+            "height": qc.view,
+            "view": qc.view,
+            "value": qc.block_hash,
+            "block_hash": qc.block_hash,
+            "signers": [v.voter for v in qc.votes],
+            "quorum": self._quorum,
+            "vote_ids": vote_ids,
+        }
+
+    def _reachable_validators(self) -> list[str]:
+        if not self._partition_groups:
+            return [str(aid) for aid in self._replica_ids]
+        mine = str(self._agent_id)
+        for group in self._partition_groups:
+            if mine in group:
+                return sorted(group)
+        return [str(aid) for aid in self._replica_ids]
 
     def _leader_for_view(self, view: int) -> AgentId:
         return self._replica_ids[view % len(self._replica_ids)]
@@ -85,6 +132,30 @@ class ReplicaAgent(StateMachineAgent):
 
             await replica.on_start(ctx)
         """
+        if self._agent_id == self._replica_ids[0]:
+            byzantine = sorted(self._malicious_agents)
+            self._record(
+                ctx,
+                "protocol_config",
+                n=len(self._replica_ids),
+                f=self._f,
+                quorum=self._quorum,
+                validators=[str(aid) for aid in self._replica_ids],
+                honest_validators=[
+                    str(aid) for aid in self._replica_ids if str(aid) not in self._malicious_agents
+                ],
+                byzantine_validators=byzantine,
+                leader_rule="view % n",
+                recovery_bound=max(2 * len(self._replica_ids) + 3, 20),
+            )
+            if self._partition_groups:
+                self._record(
+                    ctx,
+                    "partition_active",
+                    components=self._partition_groups,
+                    quorum=self._quorum,
+                    heal_at_tick=self._partition_heal_at_tick,
+                )
         await ctx.schedule(self._view_timeout_ticks, f"view-timeout:{self._current_view}".encode())
         if self._is_leader(self._current_view):
             await self._propose(ctx, self._current_view, justify_qc=None)
@@ -120,6 +191,19 @@ class ReplicaAgent(StateMachineAgent):
         value = str(ctx.rng.randint(1, 100))
         self._current_value_for_view[view] = value
         body = hotstuff_wire.encode_prepare(view, value, justify_qc)
+        self._record(
+            ctx,
+            "proposal",
+            round=view,
+            height=view,
+            view=view,
+            leader=str(self._agent_id),
+            expected_leader=str(self._leader_for_view(view)),
+            leader_valid=self._is_leader(view),
+            value=value,
+            block_hash=hotstuff_wire.block_hash(view, value),
+            justify_qc=self._qc_to_dict(justify_qc),
+        )
         await self._send_signed(ctx, body, self._replica_ids)
 
     async def _send_signed(
@@ -143,7 +227,7 @@ class ReplicaAgent(StateMachineAgent):
         return bool(identity.verify(body.encode(), signature, claimed_signer))
 
     def _qc_is_valid(self, ctx: AgentContext, qc: QuorumCert) -> bool:
-        required = 2 * self._f + 1
+        required = quorum_for_f(self._f)
         seen: set[str] = set()
         valid = 0
         payload = hotstuff_wire.encode_vote(qc.phase, qc.view, qc.block_hash).decode()
@@ -166,11 +250,43 @@ class ReplicaAgent(StateMachineAgent):
             return
         if view != self._current_view or view in self._committed:
             return
+        reachable = self._reachable_validators()
+        if len(reachable) < self._quorum:
+            self._record(
+                ctx,
+                "no_quorum",
+                round=view,
+                height=view,
+                view=view,
+                leader=str(self._leader_for_view(view)),
+                reachable_voters=reachable,
+                reachable_count=len(reachable),
+                quorum=self._quorum,
+                reason="partition_prevents_quorum",
+            )
         await self._advance_view(ctx)
 
     async def _advance_view(self, ctx: AgentContext) -> None:
+        old_view = self._current_view
         new_view = self._current_view + 1
         self._current_view = new_view
+        self._record(
+            ctx,
+            "view_change",
+            round=old_view,
+            height=old_view,
+            old_view=old_view,
+            new_view=new_view,
+            reason="leader_unavailable_or_no_qc",
+        )
+        self._record(
+            ctx,
+            "new_leader",
+            round=new_view,
+            height=new_view,
+            view=new_view,
+            leader=str(self._leader_for_view(new_view)),
+        )
         body = hotstuff_wire.encode_new_view(new_view, self._locked_qc)
         leader = self._leader_for_view(new_view)
         await self._send_signed(ctx, body, [leader])
@@ -181,24 +297,102 @@ class ReplicaAgent(StateMachineAgent):
     ) -> None:
         msg = hotstuff_wire.decode_prepare(body)
         if msg is None or not self._verify(ctx, sender, body, sig):
+            self._record(
+                ctx,
+                "rejected_vote",
+                accepted=False,
+                phase="prepare",
+                voter=str(self._agent_id),
+                leader=str(sender),
+                reason="invalid_signature",
+            )
             return
         if sender != self._leader_for_view(msg.view) or msg.view < self._current_view:
+            self._record(
+                ctx,
+                "rejected_vote",
+                accepted=False,
+                phase="prepare",
+                round=msg.view,
+                height=msg.view,
+                view=msg.view,
+                voter=str(self._agent_id),
+                leader=str(sender),
+                value=msg.value,
+                reason="wrong_leader" if sender != self._leader_for_view(msg.view) else "stale_view",
+            )
             return
         if msg.justify_qc is not None and not self._qc_is_valid(ctx, msg.justify_qc):
+            self._record(
+                ctx,
+                "rejected_vote",
+                accepted=False,
+                phase="prepare",
+                round=msg.view,
+                height=msg.view,
+                view=msg.view,
+                voter=str(self._agent_id),
+                leader=str(sender),
+                value=msg.value,
+                reason="lock_violation",
+            )
             return
-        if (
+        lock_violated = (
             self._locked_qc is not None
-            and msg.justify_qc is not None
-            and msg.justify_qc.view < self._locked_qc.view
-        ):
+            and msg.block_hash != self._locked_qc.block_hash
+            and (msg.justify_qc is None or msg.justify_qc.view < self._locked_qc.view)
+        )
+        if lock_violated:
+            self._record(
+                ctx,
+                "rejected_vote",
+                accepted=False,
+                phase="prepare",
+                round=msg.view,
+                height=msg.view,
+                view=msg.view,
+                voter=str(self._agent_id),
+                leader=str(sender),
+                value=msg.value,
+                reason="lock_violation",
+            )
             return
         if msg.view > self._current_view:
             self._current_view = msg.view
             await ctx.schedule(self._view_timeout_ticks, f"view-timeout:{msg.view}".encode())
         if self._voted_prepare.get(msg.view) is not None:
+            self._record(
+                ctx,
+                "rejected_vote",
+                accepted=False,
+                phase="prepare",
+                round=msg.view,
+                height=msg.view,
+                view=msg.view,
+                voter=str(self._agent_id),
+                leader=str(sender),
+                value=msg.value,
+                reason="equivocation",
+            )
             return
         self._voted_prepare[msg.view] = msg.block_hash
         self._current_value_for_view[msg.view] = msg.value
+        self._record(
+            ctx,
+            "vote",
+            accepted=True,
+            phase="prepare",
+            round=msg.view,
+            height=msg.view,
+            view=msg.view,
+            voter=str(self._agent_id),
+            signer=str(self._agent_id),
+            leader=str(sender),
+            value=msg.block_hash,
+            proposal_value=msg.value,
+            block_hash=msg.block_hash,
+            vote_id=self._vote_id("prepare", msg.view, self._agent_id, msg.block_hash),
+        )
         vote_body = hotstuff_wire.encode_vote("prepare", msg.view, msg.block_hash)
         await self._send_signed(ctx, vote_body, [sender])
 
@@ -207,8 +401,29 @@ class ReplicaAgent(StateMachineAgent):
     ) -> None:
         msg = hotstuff_wire.decode_vote(body)
         if msg is None or sig is None or not self._verify(ctx, sender, body, sig):
+            self._record(
+                ctx,
+                "rejected_vote",
+                accepted=False,
+                voter=str(sender),
+                leader=str(self._agent_id),
+                reason="invalid_signature",
+            )
             return
         if not self._is_leader(msg.view):
+            self._record(
+                ctx,
+                "rejected_vote",
+                accepted=False,
+                phase=msg.phase,
+                round=msg.view,
+                height=msg.view,
+                view=msg.view,
+                voter=str(sender),
+                leader=str(self._agent_id),
+                value=msg.block_hash,
+                reason="wrong_leader",
+            )
             return
         key = (msg.view, msg.block_hash)
         bucket = self._prepare_votes if msg.phase == "prepare" else self._commit_votes
@@ -221,6 +436,22 @@ class ReplicaAgent(StateMachineAgent):
             return
         formed.add(key)
         records = tuple(VoteRecord(voter=v, signature_hex=s) for v, s in votes.items())
+        self._record(
+            ctx,
+            "quorum_certificate",
+            phase=msg.phase,
+            round=msg.view,
+            height=msg.view,
+            view=msg.view,
+            value=msg.block_hash,
+            block_hash=msg.block_hash,
+            signers=[record.voter for record in records],
+            quorum=self._quorum,
+            vote_ids=[
+                self._vote_id(msg.phase, msg.view, AgentId(record.voter), msg.block_hash)
+                for record in records
+            ],
+        )
         qc_body = hotstuff_wire.encode_qc_broadcast(
             msg.phase, msg.view, msg.block_hash, self._f, records
         )
@@ -231,11 +462,32 @@ class ReplicaAgent(StateMachineAgent):
     ) -> None:
         msg = hotstuff_wire.decode_qc_broadcast(body)
         if msg is None or not self._verify(ctx, sender, body, sig):
+            self._record(ctx, "rejected_qc", reason="invalid_signature", leader=str(sender))
             return
         if sender != self._leader_for_view(msg.view) or msg.f != self._f:
+            self._record(
+                ctx,
+                "rejected_qc",
+                round=msg.view,
+                height=msg.view,
+                view=msg.view,
+                value=msg.block_hash,
+                signers=[vote.voter for vote in msg.votes],
+                reason="wrong_leader" if sender != self._leader_for_view(msg.view) else "wrong_f",
+            )
             return
         qc = QuorumCert(phase=msg.phase, view=msg.view, block_hash=msg.block_hash, votes=msg.votes)
         if not self._qc_is_valid(ctx, qc):
+            self._record(
+                ctx,
+                "rejected_qc",
+                round=msg.view,
+                height=msg.view,
+                view=msg.view,
+                value=msg.block_hash,
+                signers=[vote.voter for vote in msg.votes],
+                reason="insufficient_quorum",
+            )
             return
         if msg.phase == "prepare":
             await self._on_prepare_qc_received(ctx, qc)
@@ -248,6 +500,21 @@ class ReplicaAgent(StateMachineAgent):
         if self._voted_commit.get(qc.view) is not None:
             return
         self._voted_commit[qc.view] = qc.block_hash
+        self._record(
+            ctx,
+            "vote",
+            accepted=True,
+            phase="commit",
+            round=qc.view,
+            height=qc.view,
+            view=qc.view,
+            voter=str(self._agent_id),
+            signer=str(self._agent_id),
+            leader=str(self._leader_for_view(qc.view)),
+            value=qc.block_hash,
+            block_hash=qc.block_hash,
+            vote_id=self._vote_id("commit", qc.view, self._agent_id, qc.block_hash),
+        )
         vote_body = hotstuff_wire.encode_vote("commit", qc.view, qc.block_hash)
         await self._send_signed(ctx, vote_body, [self._leader_for_view(qc.view)])
 
@@ -257,6 +524,39 @@ class ReplicaAgent(StateMachineAgent):
             accepts = len(qc.votes)
             total = len(self._replica_ids)
             self._committed[qc.view] = (value, accepts, total)
+            qc_dict = self._qc_to_dict(qc)
+            self._record(
+                ctx,
+                "commit",
+                round=qc.view,
+                height=qc.view,
+                view=qc.view,
+                value=value,
+                block_hash=qc.block_hash,
+                committer=str(self._agent_id),
+                honest=str(self._agent_id) not in self._malicious_agents,
+                qc=qc_dict,
+            )
+            self._record(
+                ctx,
+                "safety_check",
+                round=qc.view,
+                height=qc.view,
+                view=qc.view,
+                value=value,
+                block_hash=qc.block_hash,
+                passed=self._qc_is_valid(ctx, qc),
+                rule="commit_qc_reconstructs_from_distinct_signed_votes",
+            )
+            self._record(
+                ctx,
+                "liveness_check",
+                round=qc.view,
+                height=qc.view,
+                view=qc.view,
+                passed=True,
+                rule="commit_progress_observed",
+            )
             result_body = hotstuff_wire.encode_result(qc.view, qc.block_hash, accepts, total, value)
             await self._send_signed(ctx, result_body, self._replica_ids)
         next_view = qc.view + 1
@@ -318,6 +618,45 @@ class MaliciousLeaderAgent(ReplicaAgent):
         self._current_value_for_view[view] = value_a
         body_a = hotstuff_wire.encode_prepare(view, value_a, justify_qc)
         body_b = hotstuff_wire.encode_prepare(view, value_b, justify_qc)
+        self._record(
+            ctx,
+            "byzantine_equivocation_attempt",
+            round=view,
+            height=view,
+            view=view,
+            leader=str(self._agent_id),
+            values=[value_a, value_b],
+            block_hashes=[
+                hotstuff_wire.block_hash(view, value_a),
+                hotstuff_wire.block_hash(view, value_b),
+            ],
+        )
+        self._record(
+            ctx,
+            "proposal",
+            round=view,
+            height=view,
+            view=view,
+            leader=str(self._agent_id),
+            expected_leader=str(self._leader_for_view(view)),
+            leader_valid=self._is_leader(view),
+            value=value_a,
+            block_hash=hotstuff_wire.block_hash(view, value_a),
+            justify_qc=self._qc_to_dict(justify_qc),
+        )
+        self._record(
+            ctx,
+            "proposal",
+            round=view,
+            height=view,
+            view=view,
+            leader=str(self._agent_id),
+            expected_leader=str(self._leader_for_view(view)),
+            leader_valid=self._is_leader(view),
+            value=value_b,
+            block_hash=hotstuff_wire.block_hash(view, value_b),
+            justify_qc=self._qc_to_dict(justify_qc),
+        )
         await self._send_signed(ctx, body_a, group_a)
         await self._send_signed(ctx, body_b, group_b)
 
@@ -369,6 +708,13 @@ def bft_hotstuff_factory(
     f = int(task_config.get("f", (count - 1) // 3))
     view_timeout_ticks = int(task_config.get("view_timeout_ticks", 40))
     malicious_names: set[str] = set(task_config.get("malicious_agents", []))
+    partition_groups: list[list[str]] | None = None
+    if config.failures.network_partition is not None:
+        raw_groups = config.failures.network_partition.get("groups")
+        if isinstance(raw_groups, list):
+            partition_groups = [
+                [str(item) for item in group] for group in raw_groups if isinstance(group, list)
+            ]
 
     replica_ids = [AgentId(f"replica-{i}") for i in range(count)]
     instantiate_identity(plugins, replica_ids)
@@ -377,8 +723,22 @@ def bft_hotstuff_factory(
     for rid in replica_ids:
         if str(rid) in malicious_names:
             agents[rid] = MaliciousLeaderAgent(
-                rid, replica_ids, f=f, view_timeout_ticks=view_timeout_ticks
+                rid,
+                replica_ids,
+                f=f,
+                view_timeout_ticks=view_timeout_ticks,
+                partition_groups=partition_groups,
+                partition_heal_at_tick=config.failures.partition_heal_at_tick,
+                malicious_agents=malicious_names,
             )
         else:
-            agents[rid] = ReplicaAgent(rid, replica_ids, f=f, view_timeout_ticks=view_timeout_ticks)
+            agents[rid] = ReplicaAgent(
+                rid,
+                replica_ids,
+                f=f,
+                view_timeout_ticks=view_timeout_ticks,
+                partition_groups=partition_groups,
+                partition_heal_at_tick=config.failures.partition_heal_at_tick,
+                malicious_agents=malicious_names,
+            )
     return agents
