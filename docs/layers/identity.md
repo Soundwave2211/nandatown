@@ -22,6 +22,16 @@ anything that needs real cryptographic identity.
 
 Source: [`nest_plugins_reference/identity/did_key.py`](../../packages/nest-plugins-reference/nest_plugins_reference/identity/did_key.py).
 
+## Real Ed25519 rotation
+
+`ed25519_rotating` — real Ed25519 signatures with per-signature `key_id`,
+logical `signed_at` metadata, continuity-signed key rotation, and historical
+`verify(..., as_of=tick)` checks. Old signatures remain valid only inside the
+old key's validity window; stale-key forgeries and backdated new-key
+signatures are rejected.
+
+Source: [`nest_plugins_reference/identity/ed25519_rotating.py`](../../packages/nest-plugins-reference/nest_plugins_reference/identity/ed25519_rotating.py).
+
 ## Writing your own
 
 See [`writing-a-plugin.md`](../writing-a-plugin.md). Register under

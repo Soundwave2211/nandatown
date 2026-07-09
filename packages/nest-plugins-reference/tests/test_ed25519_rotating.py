@@ -44,6 +44,12 @@ class TestEd25519SignVerify:
         sig = ident.sign(b"hello")
         assert not ident.verify(b"hello", sig, AgentId("someone-else"))
 
+    def test_verify_rejects_wrong_algorithm_even_with_valid_ed25519_bytes(self) -> None:
+        ident = _ident()
+        sig = ident.sign(b"hello")
+        sig.algorithm = "sim-rsa-sha256"
+        assert not ident.verify(b"hello", sig, AgentId("a1"))
+
     def test_public_key_is_raw_32_bytes(self) -> None:
         assert len(_ident().public_key) == 32
 
@@ -260,6 +266,11 @@ class TestDidKeyCompatibility:
         with pytest.raises(ValueError, match="public keys only"):
             ident.register_peer(AgentId("a2"), b"pub", private_key=b"priv")
 
+    def test_register_peer_rejects_non_ed25519_public_key_length(self) -> None:
+        ident = _ident()
+        with pytest.raises(ValueError, match="32 raw bytes"):
+            ident.register_peer(AgentId("a2"), b"not-ed25519")
+
     def test_register_peer_verifies_peer(self) -> None:
         a = _ident("a")
         b = _ident("b")
@@ -267,6 +278,40 @@ class TestDidKeyCompatibility:
         sig = b.sign(b"from-b")
         # a verifies b's signature as-of b's current window (peer registered now).
         assert a.verify(b"from-b", sig, AgentId("b"), as_of=0.0)
+
+    def test_apply_rotation_is_idempotent_on_replay(self) -> None:
+        signer = _ident("signer")
+        old_pub = signer.public_key
+        signer.set_clock(5.0)
+        rec = signer.rotate_key(b"new")
+
+        observer = _ident("observer")
+        observer.register_peer(AgentId("signer"), old_pub)
+        assert observer.apply_rotation(rec)
+        before = len(observer._records[AgentId("signer")])  # noqa: SLF001
+        assert observer.apply_rotation(rec)
+        assert len(observer._records[AgentId("signer")]) == before  # noqa: SLF001
+
+    def test_rotation_new_key_id_must_match_public_key(self) -> None:
+        from nest_plugins_reference.identity.ed25519_rotating import RotationRecord
+
+        signer = _ident("signer")
+        old_pub = signer.public_key
+        signer.set_clock(5.0)
+        rec = signer.rotate_key(b"new")
+        tampered = RotationRecord(
+            agent_id=rec.agent_id,
+            old_key_id=rec.old_key_id,
+            new_key_id=KeyId("wrong-key-id"),
+            new_public_key=rec.new_public_key,
+            issued_at=rec.issued_at,
+            continuity_signature=rec.continuity_signature,
+        )
+
+        observer = _ident("observer")
+        observer.register_peer(AgentId("signer"), old_pub)
+        assert not observer.verify_continuity(AgentId("signer"), tampered)
+        assert not observer.apply_rotation(tampered)
 
 
 class TestDeterminism:

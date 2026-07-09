@@ -1002,6 +1002,7 @@ def validate_identity_rotation_signatures(
     windows = _build_key_windows(events)
     honest_invalid: list[str] = []
     attacks_accepted: list[str] = []
+    attack_kinds: set[str] = set()
     ok_count = 0
     attack_count = 0
 
@@ -1042,11 +1043,18 @@ def validate_identity_rotation_signatures(
                 )
         else:
             attack_count += 1
+            attack_kinds.add(verdict)
             if window_valid:
                 attacks_accepted.append(
                     f"{agent} {verdict} sig key={key_id[:8]} "
                     f"observed={observed_tick} claimed={claimed_tick} accepted"
                 )
+
+    missing_attacks = {"forge", "backdate"} - attack_kinds
+    if missing_attacks:
+        attacks_accepted.append(
+            "missing adversarial attempts: " + ", ".join(sorted(missing_attacks))
+        )
 
     problems = honest_invalid + attacks_accepted
     if problems:

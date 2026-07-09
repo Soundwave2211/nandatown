@@ -48,23 +48,30 @@ class TestValidatorWindows:
             _send("s0", "aud", "signed:s0:K1:3.0:ok", ts=3.0),
         ]
 
+    def _full_trace(self) -> list[Event]:
+        return [
+            *self._honest_trace(),
+            _send("a", "aud", "signed:a:K0:3.0:forge", ts=3.0),
+            _send("a", "aud", "signed:a:K1:0.0:backdate", ts=3.0),
+        ]
+
     def test_honest_trace_passes(self) -> None:
-        events = self._honest_trace()
+        events = self._full_trace()
         assert validate_identity_rotation_occurred(events)[0].passed
         assert validate_identity_rotation_signatures(events)[0].passed
 
     def test_post_rotation_forgery_rejected(self) -> None:
         # forge: old key K0 used at observed ts=3 (>= rotated_out=2) -> invalid.
-        events = [*self._honest_trace(), _send("a", "aud", "signed:a:K0:3.0:forge", ts=3.0)]
+        events = self._full_trace()
         # The attack line is supposed to be window-invalid; validator PASSES
         # (the protocol correctly rejected it).
         res = validate_identity_rotation_signatures(events)[0]
         assert res.passed, res.detail
-        assert "1 attacks rejected" in res.detail
+        assert "2 attacks rejected" in res.detail
 
     def test_backdating_rejected(self) -> None:
         # backdate: new key K1 with claimed tick 0.0 (< issued_at=2) -> invalid.
-        events = [*self._honest_trace(), _send("a", "aud", "signed:a:K1:0.0:backdate", ts=3.0)]
+        events = self._full_trace()
         res = validate_identity_rotation_signatures(events)[0]
         assert res.passed, res.detail
 
@@ -75,6 +82,17 @@ class TestValidatorWindows:
         res = validate_identity_rotation_signatures(events)[0]
         assert not res.passed
         assert "accepted" in res.detail
+
+    def test_validator_requires_both_attack_kinds(self) -> None:
+        events = [*self._honest_trace(), _send("a", "aud", "signed:a:K0:3.0:forge", ts=3.0)]
+        res = validate_identity_rotation_signatures(events)[0]
+        assert not res.passed
+        assert "missing adversarial attempts: backdate" in res.detail
+
+    def test_validator_fails_happy_only_trace(self) -> None:
+        res = validate_identity_rotation_signatures(self._honest_trace())[0]
+        assert not res.passed
+        assert "missing adversarial attempts" in res.detail
 
     def test_validator_fails_when_honest_outside_window(self) -> None:
         events = [_send("s0", "aud", "signed:s0:K0:9.0:ok", ts=9.0)]
@@ -93,7 +111,7 @@ class TestValidatorWindows:
         assert not sigs.passed
 
     def test_registry_dispatch(self) -> None:
-        events = self._honest_trace()
+        events = self._full_trace()
         results = validate_events(events, "identity_rotation")
         assert len(results) == 2
         assert all(r.passed for r in results)

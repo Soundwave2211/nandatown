@@ -189,6 +189,13 @@ def _key_id_for(public_key: bytes) -> KeyId:
     return KeyId(hashlib.sha256(public_key).hexdigest())
 
 
+def _require_public_key(public_key: bytes) -> None:
+    """Require a raw Ed25519 public key."""
+    if len(public_key) != 32:
+        msg = "Ed25519 public keys must be 32 raw bytes"
+        raise ValueError(msg)
+
+
 def _public_bytes(key: Ed25519PublicKey) -> bytes:
     """Raw 32-byte encoding of an Ed25519 public key."""
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -291,6 +298,7 @@ class Ed25519RotatingIdentity:
         if private_key is not None:
             msg = "register_peer accepts public keys only"
             raise ValueError(msg)
+        _require_public_key(public_key)
         record = KeyRecord(
             key_id=_key_id_for(public_key),
             public_key=public_key,
@@ -369,6 +377,12 @@ class Ed25519RotatingIdentity:
         records = self._records.get(agent)
         if not records:
             return False
+        if _key_id_for(rotation.new_public_key) != rotation.new_key_id:
+            return False
+        try:
+            _require_public_key(rotation.new_public_key)
+        except ValueError:
+            return False
         old = next((r for r in records if r.key_id == rotation.old_key_id), None)
         if old is None:
             return False
@@ -410,6 +424,8 @@ class Ed25519RotatingIdentity:
         if not self.verify_continuity(rotation.agent_id, rotation):
             return False
         records = self._records[rotation.agent_id]
+        if any(r.key_id == rotation.new_key_id for r in records):
+            return True
         for r in records:
             if r.key_id == rotation.old_key_id and r.rotated_out == _INF:
                 r.rotated_out = rotation.issued_at
@@ -505,6 +521,8 @@ class Ed25519RotatingIdentity:
             ok = ident.verify(b"data", sig, AgentId("a2"), as_of=15.0)
         """
         if sig.signer != agent:
+            return False
+        if sig.algorithm != ALGORITHM:
             return False
         records = self._records.get(agent)
         if not records:
