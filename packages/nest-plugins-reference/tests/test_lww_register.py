@@ -22,7 +22,11 @@ from nest_core.layers.memory import Memory
 from nest_core.plugins import PluginRegistry
 from nest_core.runner import ScenarioRunner
 from nest_core.scenario import ScenarioConfig
-from nest_core.validators import validate_crdt_convergence, validate_trace
+from nest_core.validators import (
+    validate_crdt_convergence,
+    validate_memory_convergence,
+    validate_trace,
+)
 from nest_plugins_reference.memory.blackboard import Blackboard
 from nest_plugins_reference.memory.lww_register import (
     CRDT_KIND,
@@ -204,6 +208,38 @@ class TestMalformedState:
         with pytest.raises(CrdtStateError):
             await LwwRegisterMemory("a").merge("k", b'{"crdt": "lww_register"}')
 
+    @pytest.mark.asyncio
+    async def test_merge_rejects_invalid_base64_payload(self) -> None:
+        with pytest.raises(CrdtStateError):
+            await LwwRegisterMemory("a").merge(
+                "k",
+                b'{"crdt": "lww_register", "payload": "%%%", "lamport": 1, "node": "a"}',
+            )
+
+    @pytest.mark.asyncio
+    async def test_merge_rejects_negative_lamport(self) -> None:
+        with pytest.raises(CrdtStateError):
+            await LwwRegisterMemory("a").merge(
+                "k",
+                b'{"crdt": "lww_register", "payload": "eA==", "lamport": -1, "node": "a"}',
+            )
+
+    @pytest.mark.asyncio
+    async def test_merge_rejects_empty_node(self) -> None:
+        with pytest.raises(CrdtStateError):
+            await LwwRegisterMemory("a").merge(
+                "k",
+                b'{"crdt": "lww_register", "payload": "eA==", "lamport": 1, "node": ""}',
+            )
+
+    @pytest.mark.asyncio
+    async def test_merge_rejects_non_string_node(self) -> None:
+        with pytest.raises(CrdtStateError):
+            await LwwRegisterMemory("a").merge(
+                "k",
+                b'{"crdt": "lww_register", "payload": "eA==", "lamport": 1, "node": 7}',
+            )
+
     def test_crdt_state_error_is_value_error(self) -> None:
         assert issubclass(CrdtStateError, ValueError)
 
@@ -303,6 +339,36 @@ class TestConvergenceValidator:
             lambda _node: Blackboard(), self._writes, self._orders
         )
         assert not any(r.passed for r in results)
+
+    def test_trace_validator_rejects_fake_success_claims(self) -> None:
+        events = [
+            {"kind": "start", "agent": "writer-0"},
+            {"kind": "start", "agent": "writer-1"},
+            {"kind": "broadcast", "agent": "writer-0", "msg": 'final:{"success": true}'},
+            {"kind": "broadcast", "agent": "writer-1", "msg": 'final:{"success": true}'},
+        ]
+
+        results = validate_memory_convergence(events)
+
+        assert any(not result.passed for result in results)
+        assert any("invalid CRDT final" in result.detail for result in results)
+
+    def test_trace_validator_rejects_malformed_lww_state(self) -> None:
+        events = [
+            {
+                "kind": "broadcast",
+                "agent": "writer-0",
+                "msg": (
+                    'final:{"crdt": "lww_register", "payload": "%%%", '
+                    '"lamport": 1, "node": "writer-0"}'
+                ),
+            },
+        ]
+
+        results = validate_memory_convergence(events)
+
+        assert any(not result.passed for result in results)
+        assert any("invalid CRDT final" in result.detail for result in results)
 
 
 # ---------------------------------------------------------------------------

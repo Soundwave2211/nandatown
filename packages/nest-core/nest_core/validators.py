@@ -17,6 +17,8 @@ Example::
 
 from __future__ import annotations
 
+import base64
+import binascii
 import contextlib
 import json
 from collections import defaultdict
@@ -1166,6 +1168,7 @@ def validate_memory_convergence(
     finals: dict[str, str] = {}
     duplicates: set[str] = set()
     malformed: list[str] = []
+    invalid_state: list[str] = []
 
     for ev in events:
         if ev.get("kind") not in ("send", "broadcast"):
@@ -1181,6 +1184,9 @@ def validate_memory_convergence(
         except (ValueError, TypeError):
             malformed.append(agent)
             continue
+        if not _is_lww_register_state(parsed):
+            invalid_state.append(agent)
+            continue
         if agent in finals:
             duplicates.add(agent)
         finals[agent] = canonical
@@ -1193,6 +1199,15 @@ def validate_memory_convergence(
                 "memory_convergence_wellformed",
                 False,
                 f"{len(malformed)} malformed final record(s): {sorted(set(malformed))}",
+            )
+        )
+    if invalid_state:
+        results.append(
+            ValidationResult(
+                "memory_convergence_wellformed",
+                False,
+                f"{len(invalid_state)} invalid CRDT final record(s): "
+                f"{sorted(set(invalid_state))}",
             )
         )
 
@@ -1234,6 +1249,25 @@ def validate_memory_convergence(
         )
 
     return results
+
+
+def _is_lww_register_state(value: object) -> bool:
+    """Return True only for a machine-checkable LWW-Register final state."""
+    if not isinstance(value, dict):
+        return False
+    state = cast("dict[str, Any]", value)
+    if state.get("crdt") != "lww_register":
+        return False
+    payload = state.get("payload")
+    node = state.get("node")
+    if not isinstance(payload, str) or not isinstance(node, str) or not node:
+        return False
+    try:
+        base64.b64decode(payload, validate=True)
+        lamport = int(state.get("lamport"))
+    except (TypeError, ValueError, binascii.Error):
+        return False
+    return lamport >= 0
 
 
 # ---------------------------------------------------------------------------

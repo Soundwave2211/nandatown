@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -385,10 +386,21 @@ class LwwRegisterMemory:
     @staticmethod
     def _register_from_fields(fields: dict[str, Any]) -> Register:
         try:
-            payload = base64.b64decode(fields["payload"])
+            payload_field = fields["payload"]
+            if not isinstance(payload_field, str):
+                msg = f"register payload must be base64 text: {fields!r}"
+                raise CrdtStateError(msg)
+            payload = base64.b64decode(payload_field, validate=True)
             lamport = int(fields["lamport"])
-            node = str(fields["node"])
-        except (KeyError, ValueError, TypeError) as exc:
+            node_field = fields["node"]
+            if not isinstance(node_field, str) or not node_field:
+                msg = f"register node must be a non-empty string: {fields!r}"
+                raise CrdtStateError(msg)
+            node = node_field
+            if lamport < 0:
+                msg = f"register lamport must be non-negative: {fields!r}"
+                raise CrdtStateError(msg)
+        except (KeyError, ValueError, TypeError, binascii.Error) as exc:
             msg = f"malformed register fields: {fields!r}"
             raise CrdtStateError(msg) from exc
         return Register(payload=payload, lamport=lamport, node=node)
