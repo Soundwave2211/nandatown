@@ -34,6 +34,7 @@ from nest_core.validators import (
     validate_multi_attribute_pareto_optimal,
     validate_trace,
 )
+from nest_core.types import Money, Terms
 
 SCENARIO_PATH = Path(__file__).resolve().parents[3] / "scenarios" / "multi_attribute_market.yaml"
 
@@ -109,6 +110,34 @@ def test_individual_rationality_flags_below_reservation() -> None:
     result = validate_multi_attribute_individually_rational(events)[0]
     assert not result.passed
     assert "buyer" in result.detail
+
+
+def test_pareto_validator_rejects_fake_agreement_without_utility_evidence() -> None:
+    """A claimed agreement is not proof unless both utility functions are present."""
+    events = [
+        _send("offer:pair-4:buyer-4:buyer:1:60:30"),
+        _send("offer:pair-4:seller-4:seller:1:150:30"),
+        _send("agree:pair-4:60:30:seller-4"),
+    ]
+    result = validate_multi_attribute_pareto_optimal(events)[0]
+    assert not result.passed
+    assert result.detail == "scenario exercised no negotiation"
+
+
+def test_pareto_plugin_registry_and_package_export() -> None:
+    """The Q7 plugin is available through both supported public import paths."""
+    from nest_plugins_reference.negotiation import ParetoNegotiation
+
+    resolved = PluginRegistry().resolve("negotiation", "pareto")
+    assert resolved is ParetoNegotiation
+    plugin = resolved(
+        "seller",
+        weights={"price": 0.2, "deadline": 0.8},
+        price_range=(50, 150),
+        deadline_range=(1, 30),
+        side="seller",
+    )
+    assert plugin.utility(Terms(price=Money(amount=150), conditions={"deadline_days": 30})) == 1.0
 
 
 # End-to-end discrimination gate

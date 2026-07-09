@@ -51,6 +51,9 @@ gossip = "nest_plugins_reference.registry.gossip:GossipRegistry"
 [project.entry-points."nest.plugins.auth"]
 delegatable = "nest_plugins_reference.auth.delegatable:DelegatableAuth"
 
+[project.entry-points."nest.plugins.negotiation"]
+pareto = "nest_plugins_reference.negotiation.pareto:ParetoNegotiation"
+
 [project.entry-points."nest.plugins.failure_detector"]
 heartbeat = "nest_plugins_reference.failure_detection.heartbeat:HeartbeatFailureDetector"
 phi_accrual = "nest_plugins_reference.failure_detection.phi_accrual:PhiAccrualFailureDetector"

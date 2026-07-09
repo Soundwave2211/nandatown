@@ -22,6 +22,18 @@ discount.
 
 Source: [`nest_plugins_reference/negotiation/alternating_offers.py`](../../packages/nest-plugins-reference/nest_plugins_reference/negotiation/alternating_offers.py).
 
+## Additional reference plugins
+
+`pareto` — multi-attribute bargaining over price and delivery deadline. Each
+agent receives private utility weights at construction time and evaluates the
+full `Terms` object without changing the `Negotiation` protocol surface.
+
+Source: [`nest_plugins_reference/negotiation/pareto.py`](../../packages/nest-plugins-reference/nest_plugins_reference/negotiation/pareto.py).
+
+Scenario: [`multi_attribute_market.yaml`](../../scenarios/multi_attribute_market.yaml).
+
+Design note: [`q7_multi_attribute_negotiation.md`](../q7_multi_attribute_negotiation.md).
+
 ## Writing your own
 
 See [`writing-a-plugin.md`](../writing-a-plugin.md). Register under
