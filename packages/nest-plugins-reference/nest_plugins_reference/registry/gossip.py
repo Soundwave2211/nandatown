@@ -61,9 +61,10 @@ import json
 import random
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from nest_core.types import AgentCard, AgentId, Query
+from pydantic import ValidationError
 
 if TYPE_CHECKING:
     from nest_core.sim.agent import AgentContext
@@ -188,9 +189,14 @@ class GossipRegistry:
         cards = await reg.lookup(Query())  # returns local view only
     """
 
-    def __init__(self, agent_id: AgentId, network: GossipNetwork) -> None:
-        self._agent_id = agent_id
-        self._network = network
+    def __init__(
+        self,
+        agent_id: AgentId | str = AgentId("node"),
+        network: GossipNetwork | None = None,
+    ) -> None:
+        resolved_agent = AgentId(str(agent_id))
+        self._agent_id = resolved_agent
+        self._network = network or GossipNetwork(agent_ids=[resolved_agent])
         self._view: dict[AgentId, _Versioned] = {}
         self._last_pushed: dict[AgentId, dict[AgentId, _WriteTag]] = {}
         self._pending_subscribers: list[tuple[Query, list[AgentCard]]] = []
@@ -310,15 +316,25 @@ class GossipRegistry:
             return True
         op, rest = body[:1], body[1:]
         if op == OP_DIGEST:
-            sender_digest = _decode_digest(rest)
+            try:
+                sender_digest = _decode_digest(rest)
+            except ValueError:
+                return True
             missing = self._compute_missing(sender_digest)
             if missing:
                 push_payload = GOSSIP_PREFIX + OP_PUSH + _encode_push(missing)
                 await ctx.send(sender, push_payload)
             return True
         if op == OP_PUSH:
-            for card, tag, tombstone in _decode_push(rest):
-                self._apply(card, tag, tombstone=tombstone)
+            try:
+                pushed = _decode_push(rest)
+            except ValueError:
+                return True
+            for card, tag, tombstone in pushed:
+                try:
+                    self._apply(card, tag, tombstone=tombstone)
+                except ValueError:
+                    continue
             return True
         return True  # Unknown op: consume silently so junk doesn't escape.
 
@@ -346,6 +362,15 @@ class GossipRegistry:
     # ------------------------------------------------------------------
 
     def _apply(self, card: AgentCard, tag: _WriteTag, *, tombstone: bool) -> None:
+        if tag.version < 0:
+            msg = f"gossip write tag version must be non-negative: {tag.version}"
+            raise ValueError(msg)
+        if tag.publisher_id != card.agent_id:
+            msg = (
+                f"gossip publisher mismatch: tag publisher {tag.publisher_id!s} "
+                f"cannot write card {card.agent_id!s}"
+            )
+            raise ValueError(msg)
         existing = self._view.get(card.agent_id)
         if existing is not None and existing.tag >= tag:
             return
@@ -399,11 +424,36 @@ def _encode(digest: dict[AgentId, _WriteTag]) -> bytes:
 
 
 def _decode_digest(raw: bytes) -> dict[AgentId, _WriteTag]:
-    obj = json.loads(raw.decode())
-    return {
-        AgentId(aid): _WriteTag(version=int(v), publisher_id=AgentId(pid))
-        for aid, (v, pid) in obj.items()
-    }
+    try:
+        obj = json.loads(raw.decode())
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        msg = "gossip digest is not valid JSON"
+        raise ValueError(msg) from exc
+    if not isinstance(obj, dict):
+        msg = "gossip digest must be an object"
+        raise ValueError(msg)
+    digest: dict[AgentId, _WriteTag] = {}
+    for aid_raw, tag_raw in cast("dict[str, Any]", obj).items():
+        if (
+            not isinstance(tag_raw, list | tuple)
+            or len(tag_raw) != 2
+            or not isinstance(tag_raw[1], str)
+        ):
+            msg = f"malformed gossip digest tag for {aid_raw!r}"
+            raise ValueError(msg)
+        try:
+            version = int(tag_raw[0])
+        except (TypeError, ValueError) as exc:
+            msg = f"malformed gossip digest version for {aid_raw!r}"
+            raise ValueError(msg) from exc
+        if version < 0:
+            msg = f"negative gossip digest version for {aid_raw!r}"
+            raise ValueError(msg)
+        digest[AgentId(str(aid_raw))] = _WriteTag(
+            version=version,
+            publisher_id=AgentId(tag_raw[1]),
+        )
+    return digest
 
 
 def _encode_push(items: list[tuple[AgentCard, _WriteTag, bool]]) -> bytes:
@@ -420,13 +470,40 @@ def _encode_push(items: list[tuple[AgentCard, _WriteTag, bool]]) -> bytes:
 
 
 def _decode_push(raw: bytes) -> list[tuple[AgentCard, _WriteTag, bool]]:
-    obj: list[dict[str, object]] = json.loads(raw.decode())
+    try:
+        obj = json.loads(raw.decode())
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        msg = "gossip push is not valid JSON"
+        raise ValueError(msg) from exc
+    if not isinstance(obj, list):
+        msg = "gossip push must be a list"
+        raise ValueError(msg)
     out: list[tuple[AgentCard, _WriteTag, bool]] = []
     for entry in obj:
-        card = AgentCard.model_validate(entry["card"])
-        tag = _WriteTag(
-            version=int(entry["version"]),  # type: ignore[arg-type]
-            publisher_id=AgentId(str(entry["publisher"])),
-        )
-        out.append((card, tag, bool(entry["tombstone"])))
+        if not isinstance(entry, dict):
+            msg = f"gossip push entry must be an object: {entry!r}"
+            raise ValueError(msg)
+        entry_obj = cast("dict[str, Any]", entry)
+        try:
+            card = AgentCard.model_validate(entry_obj["card"])
+            version = int(entry_obj["version"])
+            publisher = str(entry_obj["publisher"])
+        except (KeyError, TypeError, ValueError, ValidationError) as exc:
+            msg = f"malformed gossip push entry: {entry_obj!r}"
+            raise ValueError(msg) from exc
+        tag = _WriteTag(version=version, publisher_id=AgentId(publisher))
+        if tag.version < 0:
+            msg = f"negative gossip push version for {card.agent_id!s}"
+            raise ValueError(msg)
+        if tag.publisher_id != card.agent_id:
+            msg = (
+                f"gossip push publisher {tag.publisher_id!s} cannot write "
+                f"card {card.agent_id!s}"
+            )
+            raise ValueError(msg)
+        tombstone = entry_obj.get("tombstone")
+        if not isinstance(tombstone, bool):
+            msg = f"gossip push tombstone must be boolean for {card.agent_id!s}"
+            raise ValueError(msg)
+        out.append((card, tag, tombstone))
     return out

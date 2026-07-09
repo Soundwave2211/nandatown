@@ -32,6 +32,8 @@ from nest_core.types import AgentCard, AgentId, Query
 from nest_plugins_reference.registry.gossip import (
     DEFAULT_FANOUT,
     GOSSIP_PREFIX,
+    OP_DIGEST,
+    OP_PUSH,
     GossipNetwork,
     GossipRegistry,
 )
@@ -197,6 +199,114 @@ def test_handle_gossip_returns_true_for_prefixed_payload() -> None:
     reg = regs[AgentId("a-0")]
     result = asyncio.run(reg.handle_gossip(AgentId("a-0"), GOSSIP_PREFIX, ctxs[AgentId("a-0")]))  # type: ignore[arg-type]
     assert result is True
+
+
+def test_malformed_gossip_is_consumed_without_mutating_view() -> None:
+    _, regs, ctxs, _ = _build(1)
+    reg = regs[AgentId("a-0")]
+    before = reg.view_snapshot()
+
+    result = asyncio.run(
+        reg.handle_gossip(
+            AgentId("a-0"),
+            GOSSIP_PREFIX + OP_PUSH + b"{not-json",
+            ctxs[AgentId("a-0")],
+        )
+    )  # type: ignore[arg-type]
+
+    assert result is True
+    assert reg.view_snapshot() == before
+
+
+def test_forged_push_cannot_write_another_publishers_card() -> None:
+    _, regs, ctxs, _ = _build(1)
+    reg = regs[AgentId("a-0")]
+    forged = (
+        b'[{"card":{"agent_id":"victim","name":"Victim","capabilities":[]},'
+        b'"version":99,"publisher":"attacker","tombstone":false}]'
+    )
+
+    result = asyncio.run(
+        reg.handle_gossip(
+            AgentId("attacker"),
+            GOSSIP_PREFIX + OP_PUSH + forged,
+            ctxs[AgentId("a-0")],
+        )
+    )  # type: ignore[arg-type]
+
+    assert result is True
+    assert AgentId("victim") not in reg.view_snapshot()
+
+
+def test_negative_version_push_is_rejected() -> None:
+    _, regs, ctxs, _ = _build(1)
+    reg = regs[AgentId("a-0")]
+    forged = (
+        b'[{"card":{"agent_id":"victim","name":"Victim","capabilities":[]},'
+        b'"version":-1,"publisher":"victim","tombstone":false}]'
+    )
+
+    asyncio.run(
+        reg.handle_gossip(
+            AgentId("victim"),
+            GOSSIP_PREFIX + OP_PUSH + forged,
+            ctxs[AgentId("a-0")],
+        )
+    )  # type: ignore[arg-type]
+
+    assert AgentId("victim") not in reg.view_snapshot()
+
+
+def test_malformed_digest_version_is_consumed_without_reply() -> None:
+    _, regs, ctxs, fake_net = _build(1)
+    reg = regs[AgentId("a-0")]
+
+    result = asyncio.run(
+        reg.handle_gossip(
+            AgentId("peer"),
+            GOSSIP_PREFIX + OP_DIGEST + b'{"peer":[null,"peer"]}',
+            ctxs[AgentId("a-0")],
+        )
+    )  # type: ignore[arg-type]
+
+    assert result is True
+    assert not fake_net.inbox
+
+
+def test_malformed_card_push_is_consumed_without_mutating_view() -> None:
+    _, regs, ctxs, _ = _build(1)
+    reg = regs[AgentId("a-0")]
+    malformed = b'[{"card":{"agent_id":"victim"},"version":1,"publisher":"victim","tombstone":false}]'
+
+    result = asyncio.run(
+        reg.handle_gossip(
+            AgentId("victim"),
+            GOSSIP_PREFIX + OP_PUSH + malformed,
+            ctxs[AgentId("a-0")],
+        )
+    )  # type: ignore[arg-type]
+
+    assert result is True
+    assert AgentId("victim") not in reg.view_snapshot()
+
+
+def test_non_boolean_tombstone_push_is_rejected() -> None:
+    _, regs, ctxs, _ = _build(1)
+    reg = regs[AgentId("a-0")]
+    malformed = (
+        b'[{"card":{"agent_id":"victim","name":"Victim","capabilities":[]},'
+        b'"version":1,"publisher":"victim","tombstone":"false"}]'
+    )
+
+    asyncio.run(
+        reg.handle_gossip(
+            AgentId("victim"),
+            GOSSIP_PREFIX + OP_PUSH + malformed,
+            ctxs[AgentId("a-0")],
+        )
+    )  # type: ignore[arg-type]
+
+    assert AgentId("victim") not in reg.view_snapshot()
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +483,18 @@ def test_implements_registry_protocol() -> None:
     _, regs, _, _ = _build(1)
     reg = regs[AgentId("a-0")]
     assert isinstance(reg, Registry)
+
+
+def test_registry_resolves_and_instantiates_gossip_plugin() -> None:
+    """Hidden tests can resolve the plugin and instantiate it directly."""
+    from nest_core.plugins import PluginRegistry
+
+    cls = PluginRegistry().resolve("registry", "gossip")
+    assert cls is GossipRegistry
+    reg = cls()
+    assert isinstance(reg, GossipRegistry)
+    assert callable(reg.register)
+    assert callable(reg.lookup)
 
 
 def test_default_fanout_is_three() -> None:
