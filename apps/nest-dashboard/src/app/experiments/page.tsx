@@ -285,10 +285,10 @@ export default function ExperimentsPage() {
                         </span>
                       </button>
                       <Link
-                        href="/visualizer"
+                        href="/town"
                         className="text-[0.85rem] text-ink-400 hover:text-ink-900 transition-colors"
                       >
-                        Visualize &rarr;
+                        View town &rarr;
                       </Link>
                     </div>
                   </div>
@@ -349,10 +349,10 @@ export default function ExperimentsPage() {
                       </pre>
 
                       <Link
-                        href="/visualizer"
+                        href="/town"
                         className="mt-6 inline-flex items-center text-[0.85rem] font-medium text-ink-900 hover:text-rust transition-colors"
                       >
-                        Open in visualizer &rarr;
+                        Open in town &rarr;
                       </Link>
                     </div>
                   )}

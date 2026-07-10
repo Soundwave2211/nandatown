@@ -353,7 +353,7 @@ export default function DocsPage() {
               <p className="text-[0.95rem] leading-[1.65] text-ink-600">
                 Nanda Town is a <strong className="text-ink-900">Python tool you install on your own computer</strong>. It runs on your machine and saves a JSONL file to disk. This website
                 only shows the docs, some ready-made example runs in the
-                Visualizer, and the Experiments gallery. It does
+              Town map, and the Experiments gallery. It does
                 not run scenarios in your browser. Follow the{' '}
                 <a href="#installation" className="text-rust hover:text-rust/80 underline underline-offset-2">
                   Installation
@@ -1243,7 +1243,7 @@ my_decay = "my_trust.plugin:DecayTrust"`}
                 cause={
                   <>
                     That is right &mdash; this website only shows ready-made JSONL
-                    traces in the Visualizer and links to the docs. It does not
+                    traces in the Experiments gallery and links to the docs. It does not
                     run the simulator. The simulator is the{' '}
                     <InlineCode>nest</InlineCode> command you installed above.
                   </>
@@ -1251,12 +1251,10 @@ my_decay = "my_trust.plugin:DecayTrust"`}
                 fix={
                   <>
                     Run a scenario on your computer (<InlineCode>nest run marketplace</InlineCode>),
-                    then drop the new{' '}
-                    <InlineCode>traces/marketplace.jsonl</InlineCode> file into the{' '}
-                    <a href="/visualizer" className="text-rust hover:text-rust/80 underline underline-offset-2">
-                      Visualizer
-                    </a>{' '}
-                    to play it back.
+                    then compare the results in the{' '}
+                    <a href="/experiments" className="text-rust hover:text-rust/80 underline underline-offset-2">
+                      Experiments gallery
+                    </a>.
                   </>
                 }
               />
@@ -1291,10 +1289,10 @@ my_decay = "my_trust.plugin:DecayTrust"`}
                     and links to the docs. The simulator itself is the{' '}
                     <InlineCode>nest</InlineCode> command on your computer. To play
                     your own runs, make a trace on your machine
-                    (<InlineCode>nest run marketplace</InlineCode>) and load
-                    it into the{' '}
-                    <a href="/visualizer" className="text-rust hover:text-rust/80 underline underline-offset-2">
-                      Visualizer
+                    (<InlineCode>nest run marketplace</InlineCode>) and compare
+                    it with the examples in the{' '}
+                    <a href="/experiments" className="text-rust hover:text-rust/80 underline underline-offset-2">
+                      Experiments gallery
                     </a>.
                   </p>
                 }

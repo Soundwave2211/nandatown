@@ -6,11 +6,11 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const links = [
+  { href: "/town", label: "Town" },
   { href: "/agents", label: "Agents" },
   { href: "/experiments", label: "Experiments" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/hackathon", label: "Hackathon" },
-  { href: "/visualizer", label: "Visualizer" },
   { href: "/docs", label: "Docs" },
   { href: "/skills", label: "Skills" },
 ];
@@ -20,10 +20,12 @@ const GITHUB_URL = "https://github.com/projnanda/nandatown";
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const isTown = pathname.startsWith("/town");
 
   // Close the mobile menu whenever the route changes.
   useEffect(() => {
-    setOpen(false);
+    const id = window.setTimeout(() => setOpen(false), 0);
+    return () => window.clearTimeout(id);
   }, [pathname]);
 
   // Close on Escape for keyboard users.
@@ -39,11 +41,11 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-cream-400/60 bg-cream-100/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-6 sm:px-10">
-        {/* Wordmark — Nanda Town icon + Nanda Town + "by Project NANDA" + NANDA dots */}
+        {/* Wordmark */}
         <Link
           href="/"
           className="flex items-center gap-3 group"
-          aria-label="Nanda Town by Project NANDA — home"
+          aria-label={isTown ? "Nanda Town by Siddharth Khanna — home" : "Nanda Town by Project NANDA — home"}
         >
           <Image
             src="/brand/nandatown-logo.png"
@@ -57,14 +59,16 @@ export function Navbar() {
             Nanda Town
           </span>
           <span className="hidden sm:inline-flex items-center gap-2 pl-3 ml-1 border-l border-cream-400 text-[10px] font-mono uppercase tracking-[0.2em] text-ink-300 leading-none">
-            by Project NANDA
-            <Image
-              src="/brand/nanda-logo.png"
-              alt="Project NANDA"
-              width={18}
-              height={18}
-              className="h-[18px] w-[18px] object-contain"
-            />
+            {isTown ? "by Siddharth Khanna" : "by Project NANDA"}
+            {!isTown && (
+              <Image
+                src="/brand/nanda-logo.png"
+                alt="Project NANDA"
+                width={18}
+                height={18}
+                className="h-[18px] w-[18px] object-contain"
+              />
+            )}
           </span>
         </Link>
 
