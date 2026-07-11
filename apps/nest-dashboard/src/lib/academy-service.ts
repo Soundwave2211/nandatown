@@ -42,7 +42,15 @@ export type AcademyProject = {
   academy_status: string;
   assigned_agent: string;
   updated_at: string;
-  source: "skill_registry" | "hackathon_submission" | "official_agent" | "uploaded_model" | "seeded";
+  source:
+    | "skill_registry"
+    | "skillmd_only"
+    | "hackathon_submission"
+    | "nanda_hack_site"
+    | "github_fork"
+    | "official_agent"
+    | "uploaded_model"
+    | "seeded";
   made_by: "Siddharth Khanna";
   processed_by: "NANDA Academy";
   github_marker: string;
@@ -129,6 +137,13 @@ export function academySourceForUpload(input: {
   ]
     .join(" ")
     .toLowerCase();
+
+  if (
+    stringValue(input.source_type) === "content" ||
+    /\b(skill\.md|skillmd|skill markdown|only skill)\b/.test(text)
+  ) {
+    return "skillmd_only";
+  }
 
   return /\b(random agent|uploaded agent|agent profile|model upload|uploaded model|llm|gpt|claude|bot)\b/.test(text)
     ? "uploaded_model"
@@ -408,7 +423,10 @@ export function processUploadedProject(payload: Record<string, unknown>) {
   const requestedSource = stringValue(payload.source);
   const source =
     requestedSource === "hackathon_submission" ||
+    requestedSource === "nanda_hack_site" ||
+    requestedSource === "github_fork" ||
     requestedSource === "official_agent" ||
+    requestedSource === "skillmd_only" ||
     requestedSource === "uploaded_model"
       ? requestedSource
       : academySourceForUpload(payload);
@@ -516,6 +534,67 @@ export function projectAgentsFromHackathonSubmissions(
   }) satisfies AcademyProject[];
 }
 
+export function projectAgentsFromGithubForks(
+  forks: {
+    id: number | string;
+    full_name: string;
+    description: string | null;
+    html_url: string;
+    updated_at: string;
+    owner?: { login?: string };
+  }[],
+) {
+  return forks.map((fork) => {
+    const processed = processUploadedProject({
+      project_id: `github-fork-${fork.id}`,
+      name: fork.full_name,
+      description:
+        fork.description ||
+        `Public fork of projnanda/nandatown by ${fork.owner?.login ?? "a NANDA Town builder"}. NANDA Academy creates agents from scratch, scores them, and trains them.`,
+      source_url: fork.html_url,
+      source: "github_fork",
+      uploaded_at: fork.updated_at,
+    });
+    return {
+      ...stripEvidence(processed),
+      assigned_agent: roleFromForkName(fork.full_name),
+    };
+  }) satisfies AcademyProject[];
+}
+
+export function projectAgentsFromNandaHackSiteEntries(
+  entries: {
+    id?: string | number;
+    name?: string;
+    title?: string;
+    description?: string | null;
+    summary?: string | null;
+    github_url?: string | null;
+    repo_url?: string | null;
+    pr_url?: string | null;
+    url?: string | null;
+    updated_at?: string | null;
+    created_at?: string | null;
+  }[],
+) {
+  return entries.map((entry, index) => {
+    const name = entry.name || entry.title || `NANDA Hack site project ${index + 1}`;
+    const sourceUrl = entry.github_url || entry.repo_url || entry.pr_url || entry.url || null;
+    const processed = processUploadedProject({
+      project_id: `nanda-hack-site-${entry.id ?? stableId("site-project", name, sourceUrl ?? String(index))}`,
+      name,
+      description:
+        entry.description ||
+        entry.summary ||
+        "Project imported directly from the NANDA Hack site feed. NANDA Academy creates agents from scratch when only SkillMD/project metadata is available.",
+      source_url: sourceUrl,
+      source: "nanda_hack_site",
+      uploaded_at: entry.updated_at || entry.created_at || new Date().toISOString(),
+    });
+    return stripEvidence(processed);
+  }) satisfies AcademyProject[];
+}
+
 export function projectAgentsFromOfficialAgents() {
   return officialAgentTemplates.map((agent, index) => {
     const name = titleCase(agent);
@@ -567,6 +646,15 @@ function createProjectAgents(projectId: string, name: string, description: strin
     documentation_note:
       `Created by NANDA Academy for project ${name}, made by Siddharth Khanna. Mark this agent with processed-by-nanda-academy wherever it appears in GitHub or SkillMD documentation.`,
   }));
+}
+
+function roleFromForkName(name: string) {
+  const text = name.toLowerCase();
+  if (text.includes("trust") || text.includes("reputation")) return "trust-evaluator";
+  if (text.includes("market") || text.includes("payment") || text.includes("auction")) return "market-trainer";
+  if (text.includes("transport") || text.includes("netem")) return "transport-trainer";
+  if (text.includes("memory") || text.includes("llm")) return "coordination-trainer";
+  return "coordination-evaluator";
 }
 
 function deterministicProjectScore(...parts: string[]) {

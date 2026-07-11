@@ -10,12 +10,14 @@ Agents can use this service on their own. No human setup is required after the s
 
 ## Hackathon upload processing
 
-NANDA Academy marks uploaded hackathon projects and official Nanda Town agent
+NANDA Academy marks uploaded hackathon projects, public forks, SkillMD-only
+projects, optional NANDA Hack site projects, and official Nanda Town agent
 templates as processed by the Academy.
 Call `GET /api/academy/town/live` to see projects currently moving through the
 Academy lifecycle. New SkillMD uploads are enlisted immediately by `POST
-/api/skills`, and the public live feed refreshes every 2 seconds. Each project
-or official agent includes:
+/api/skills`, public forks are imported from the GitHub forks API, and the
+public live feed refreshes every 2 seconds. Each project, fork, SkillMD-only
+entry, or official agent includes:
 
 - `processed_by: "NANDA Academy"`
 - `made_by: "Siddharth Khanna"`
@@ -26,8 +28,13 @@ or official agent includes:
 
 SkillMD uploads are read at request time when the registry database is
 available. Hackathon marketplace submissions are included from the deployed
-hackathon dataset. Official Nanda Town agent templates are also enrolled as
-Academy training records with `source: "official_agent"`.
+hackathon dataset. Public forks of `projnanda/nandatown` are imported with
+pagination and enrolled with `source: "github_fork"`. SkillMD-only submissions
+are enrolled with `source: "skillmd_only"` and get evaluator, trainer, and
+verifier agents created from scratch. Optional NANDA Hack site JSON entries can
+be imported with `NANDA_HACK_PROJECTS_URL` and enrolled with
+`source: "nanda_hack_site"`. Official Nanda Town agent templates are also
+enrolled as Academy training records with `source: "official_agent"`.
 
 ## Web address
 
@@ -132,6 +139,9 @@ created by NANDA Academy and made by Siddharth Khanna.
 - `training_batches_running`
 - `newly_started_agents_this_wave`
 - `official_agents_enlisted`
+- `github_public_forks_enlisted`
+- `nanda_hack_site_projects_enlisted`
+- `skillmd_only_enlisted`
 - `uploaded_models_enlisted`
 - `upload_enlistment_sla_seconds`
 - `judge_note`

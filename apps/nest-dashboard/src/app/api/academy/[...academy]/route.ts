@@ -10,7 +10,9 @@ import {
   generateCurriculum,
   officialAgentTemplates,
   processUploadedProject,
+  projectAgentsFromGithubForks,
   projectAgentsFromHackathonSubmissions,
+  projectAgentsFromNandaHackSiteEntries,
   projectAgentsFromOfficialAgents,
   projectAgentsFromSkills,
   recommendCollaborationRole,
@@ -94,6 +96,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 async function liveTownSnapshot() {
   let skillProjects: AcademyProject[] = [];
   let hackathonProjects: AcademyProject[] = [];
+  let githubForkProjects: AcademyProject[] = [];
+  let nandaHackSiteProjects: AcademyProject[] = [];
   const officialAgentProjects = projectAgentsFromOfficialAgents();
   const sources: string[] = [];
 
@@ -117,11 +121,37 @@ async function liveTownSnapshot() {
     // Static hackathon data is optional at runtime.
   }
 
+  try {
+    const forks = await loadGithubForks();
+    githubForkProjects = projectAgentsFromGithubForks(forks);
+    if (githubForkProjects.length > 0) {
+      sources.push("github_public_forks");
+    }
+  } catch {
+    // GitHub is best-effort at runtime; static and DB sources still work.
+  }
+
+  try {
+    const siteEntries = await loadNandaHackSiteEntries();
+    nandaHackSiteProjects = projectAgentsFromNandaHackSiteEntries(siteEntries);
+    if (nandaHackSiteProjects.length > 0) {
+      sources.push("nanda_hack_site");
+    }
+  } catch {
+    // Optional external NANDA Hack project feed.
+  }
+
   if (officialAgentProjects.length > 0) {
     sources.push("official_agents");
   }
 
-  let projects = mergeProjects(skillProjects, hackathonProjects, officialAgentProjects);
+  let projects = mergeProjects(
+    skillProjects,
+    hackathonProjects,
+    githubForkProjects,
+    nandaHackSiteProjects,
+    officialAgentProjects,
+  );
   if (projects.length === 0) {
     projects = seededProjects();
     sources.push("seeded");
@@ -133,6 +163,9 @@ async function liveTownSnapshot() {
   const currentTrainingCount = projects.length;
   const maintenanceTrainingCount = Math.max(0, currentTrainingCount - remedialTrainingCount);
   const uploadedModelsEnlisted = projects.filter((project) => project.source === "uploaded_model").length;
+  const skillMdOnlyEnlisted = projects.filter((project) => project.source === "skillmd_only").length;
+  const githubForksEnlisted = projects.filter((project) => project.source === "github_fork").length;
+  const nandaHackSiteEnlisted = projects.filter((project) => project.source === "nanda_hack_site").length;
   const trainingBatchesRunning = Math.max(4, Math.ceil(projects.length / 2));
   const activeTrainingAgents = Math.max(128, currentTrainingCount * 36);
   const trainingWave = Math.floor(Date.now() / 2000);
@@ -183,11 +216,14 @@ async function liveTownSnapshot() {
       training_wave: trainingWave,
       official_agents_enlisted: officialAgentProjects.length,
       uploaded_models_enlisted: uploadedModelsEnlisted,
+      skillmd_only_enlisted: skillMdOnlyEnlisted,
+      github_public_forks_enlisted: githubForksEnlisted,
+      nanda_hack_site_projects_enlisted: nandaHackSiteEnlisted,
       upload_enlistment_sla_seconds: 2,
-      goal: "Create and train Academy agents for every uploaded project, random agent, uploaded model, and official Nanda Town agent seen so far.",
+      goal: "Create and train Academy agents for every uploaded project, public fork, NANDA Hack site project, SkillMD-only submission, random agent, uploaded model, and official Nanda Town agent seen so far.",
       status:
         projects.length === projectsWithAcademyAgents
-          ? "All uploaded projects, agent/model uploads, and official agents in this feed have Academy-created agents."
+          ? "All uploaded projects, public forks, NANDA Hack site projects, SkillMD-only submissions, agent/model uploads, and official agents in this feed have Academy-created agents."
           : "Academy is creating agents for newly discovered projects.",
       judge_note:
         "Every discovered project or agent is actively trained by Siddharth Khanna's Academy agent. Rows below the 78% readiness threshold get remedial lessons first; rows already above the line stay in maintenance training and certification.",
@@ -199,6 +235,55 @@ async function liveTownSnapshot() {
       ? `${projects[0].assigned_agent} is ${projects[0].academy_status} ${projects[0].name} for NANDA Academy`
       : "Academy is waiting for submitted NANDA Town projects.",
   };
+}
+
+type GithubFork = {
+  id: number | string;
+  full_name: string;
+  description: string | null;
+  html_url: string;
+  updated_at: string;
+  owner?: { login?: string };
+};
+
+async function loadGithubForks(): Promise<GithubFork[]> {
+  const forks: GithubFork[] = [];
+  for (let page = 1; page <= 5; page += 1) {
+    const response = await fetch(
+      `https://api.github.com/repos/projnanda/nandatown/forks?per_page=100&page=${page}&sort=newest`,
+      {
+        headers: {
+          Accept: "application/vnd.github+json",
+          "User-Agent": "nanda-academy-by-siddharth-khanna",
+        },
+        next: { revalidate: 300 },
+      },
+    );
+    if (!response.ok) break;
+    const batch = (await response.json()) as GithubFork[];
+    forks.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return forks;
+}
+
+async function loadNandaHackSiteEntries() {
+  const url = process.env.NANDA_HACK_PROJECTS_URL;
+  if (!url) return [];
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 120 },
+  });
+  if (!response.ok) return [];
+  const payload = (await response.json()) as unknown;
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    for (const key of ["projects", "submissions", "items", "data"]) {
+      if (Array.isArray(record[key])) return record[key];
+    }
+  }
+  return [];
 }
 
 function mergeProjects(...groups: AcademyProject[][]) {

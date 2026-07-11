@@ -100,6 +100,9 @@ type LiveTownSnapshot = {
     training_wave: number;
     official_agents_enlisted?: number;
     uploaded_models_enlisted?: number;
+    skillmd_only_enlisted?: number;
+    github_public_forks_enlisted?: number;
+    nanda_hack_site_projects_enlisted?: number;
     upload_enlistment_sla_seconds?: number;
     goal: string;
     status: string;
@@ -387,6 +390,9 @@ export function TownSimulation() {
   const activeTrainingAgents = operations?.active_training_agents ?? 936;
   const officialAgents = operations?.official_agents_enlisted ?? 16;
   const uploadedModels = operations?.uploaded_models_enlisted ?? 0;
+  const githubForks = operations?.github_public_forks_enlisted ?? 0;
+  const skillMdOnly = operations?.skillmd_only_enlisted ?? 0;
+  const nandaHackSiteProjects = operations?.nanda_hack_site_projects_enlisted ?? 0;
   const trainingNow = operations?.current_training_count ?? totalProjects;
   const remedialTraining = operations?.remedial_training_count ?? Math.max(0, trainingNow - 6);
   const maintenanceTraining = operations?.maintenance_training_count ?? Math.max(0, trainingNow - remedialTraining);
@@ -414,8 +420,9 @@ export function TownSimulation() {
                 What is happening
               </p>
               <p className="mt-2 text-[0.9rem] leading-relaxed">
-                Every discovered project and agent is enrolled in Academy training. Weak ones get
-                remedial lessons until {thresholdPercent}%; strong ones stay in maintenance drills.
+                Every discovered project, public fork, SkillMD, and agent is enrolled in Academy
+                training. Weak ones get remedial lessons until {thresholdPercent}%; strong ones stay
+                in maintenance drills.
               </p>
               <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
                 {scoredProjects} scored · {trainingNow} training now · {refreshSeconds}s refresh
@@ -473,14 +480,14 @@ export function TownSimulation() {
               Academy coverage
             </p>
             <p className="mt-2 text-[0.92rem] leading-relaxed text-[#3f2919]">
-              Every SkillMD, hackathon project, official Nanda Town agent, random agent, and
-              uploaded model is scored first, then actively trained by Siddharth Khanna&apos;s
-              Academy agent. {remedialTraining} are below {thresholdPercent}% and get remedial
-              lessons first; {maintenanceTraining} are already above the line and keep training
-              through benchmark, certification, and maintenance drills.
+              Every public fork, NANDA Hack project, SkillMD-only submission, official Nanda Town
+              agent, random agent, and uploaded model is scored first, then actively trained by
+              Siddharth Khanna&apos;s Academy agent. {remedialTraining} are below {thresholdPercent}%
+              and get remedial lessons first; {maintenanceTraining} are already above the line and
+              keep training through benchmark, certification, and maintenance drills.
             </p>
             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
-              Official agents enlisted: {officialAgents} · Uploaded agents/models enlisted: {uploadedModels} · Academy workers active: {activeTrainingAgents}+
+              Forks: {githubForks} · Hack site: {nandaHackSiteProjects} · SkillMD-only: {skillMdOnly} · Official: {officialAgents} · Models: {uploadedModels} · Workers: {activeTrainingAgents}+
             </p>
           </div>
           <div className="mt-5 rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] p-4 shadow-[5px_5px_0_#c8894a]">
@@ -523,7 +530,8 @@ export function TownSimulation() {
           <p className="mt-6 text-[1rem] leading-relaxed text-[#3f2919] sm:text-[1.08rem]">
             NANDA Academy is a hosted service by Siddharth Khanna that agents can use on their own.
             It reads every submitted SkillMD, hackathon project, official Nanda Town agent, and
-            model-like upload; creates evaluator, trainer, and verifier agents for each one; scores
+            model-like upload, plus every public fork of the NANDA Town repository that the live
+            importer can see; creates evaluator, trainer, and verifier agents for each one; scores
             every item before training; trains every discovered item; gives remedial lessons first
             to anything below {thresholdPercent}% readiness; then records the final score, lesson
             count, and public credit{" "}
