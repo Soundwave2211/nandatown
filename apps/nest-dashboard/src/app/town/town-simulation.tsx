@@ -90,6 +90,8 @@ type LiveTownSnapshot = {
     project_coverage_percent: number;
     scored_projects?: number;
     current_training_count?: number;
+    remedial_training_count?: number;
+    maintenance_training_count?: number;
     training_threshold?: number;
     academy_created_agents: number;
     active_training_agents: number;
@@ -385,7 +387,9 @@ export function TownSimulation() {
   const activeTrainingAgents = operations?.active_training_agents ?? 936;
   const officialAgents = operations?.official_agents_enlisted ?? 16;
   const uploadedModels = operations?.uploaded_models_enlisted ?? 0;
-  const trainingNow = operations?.current_training_count ?? 18;
+  const trainingNow = operations?.current_training_count ?? totalProjects;
+  const remedialTraining = operations?.remedial_training_count ?? Math.max(0, trainingNow - 6);
+  const maintenanceTraining = operations?.maintenance_training_count ?? Math.max(0, trainingNow - remedialTraining);
   const scoredProjects = operations?.scored_projects ?? totalProjects;
   const thresholdPercent = Math.round((operations?.training_threshold ?? 0.78) * 100);
   const refreshSeconds = Math.round((liveTown?.refresh_interval_ms ?? 2000) / 1000);
@@ -410,11 +414,11 @@ export function TownSimulation() {
                 What is happening
               </p>
               <p className="mt-2 text-[0.9rem] leading-relaxed">
-                Projects and agents enter at Arrival, get scored in Evaluate, and only the weak
-                ones go through Training until they reach {thresholdPercent}% readiness.
+                Every discovered project and agent is enrolled in Academy training. Weak ones get
+                remedial lessons until {thresholdPercent}%; strong ones stay in maintenance drills.
               </p>
               <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
-                {scoredProjects} scored · {trainingNow} training · {refreshSeconds}s live refresh
+                {scoredProjects} scored · {trainingNow} training now · {refreshSeconds}s refresh
               </p>
             </div>
 
@@ -470,9 +474,10 @@ export function TownSimulation() {
             </p>
             <p className="mt-2 text-[0.92rem] leading-relaxed text-[#3f2919]">
               Every SkillMD, hackathon project, official Nanda Town agent, random agent, and
-              uploaded model is scored first. If it is below {thresholdPercent}% readiness,
-              Siddharth Khanna&apos;s Academy agent trains it until it reaches the threshold;
-              if it is already above the line, it gets certified without extra training.
+              uploaded model is scored first, then actively trained by Siddharth Khanna&apos;s
+              Academy agent. {remedialTraining} are below {thresholdPercent}% and get remedial
+              lessons first; {maintenanceTraining} are already above the line and keep training
+              through benchmark, certification, and maintenance drills.
             </p>
             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
               Official agents enlisted: {officialAgents} · Uploaded agents/models enlisted: {uploadedModels} · Academy workers active: {activeTrainingAgents}+
@@ -482,11 +487,11 @@ export function TownSimulation() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
-                  Live training leaderboard
-                </p>
-                <h2 className="mt-1 font-display text-[1.7rem] leading-none text-[#3f2919]">
-                  Weakest agents get trained first.
-                </h2>
+                Live training leaderboard
+              </p>
+              <h2 className="mt-1 font-display text-[1.7rem] leading-none text-[#3f2919]">
+                  All agents train; weakest get help first.
+              </h2>
               </div>
               <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
                 Trained by Siddharth Khanna&apos;s Academy agent
@@ -509,7 +514,7 @@ export function TownSimulation() {
                     {Math.round(entry.pre_training_score * 100)}% → {Math.round(entry.post_training_score * 100)}%
                   </span>
                   <span className="font-mono text-[0.72rem] uppercase tracking-[0.1em] text-[#8a5a2f]">
-                    {entry.training_required ? `${entry.training_sessions_assigned} lessons` : "certified"}
+                    {entry.training_required ? `${entry.training_sessions_assigned} lessons` : "maintenance"}
                   </span>
                 </div>
               ))}
@@ -519,8 +524,9 @@ export function TownSimulation() {
             NANDA Academy is a hosted service by Siddharth Khanna that agents can use on their own.
             It reads every submitted SkillMD, hackathon project, official Nanda Town agent, and
             model-like upload; creates evaluator, trainer, and verifier agents for each one; scores
-            every item before training; trains only the ones below {thresholdPercent}% readiness;
-            then records the final score, lesson count, and public credit{" "}
+            every item before training; trains every discovered item; gives remedial lessons first
+            to anything below {thresholdPercent}% readiness; then records the final score, lesson
+            count, and public credit{" "}
             <span className="font-semibold">made by Siddharth Khanna</span>. The live map and
             leaderboard show that pipeline running in real time.
           </p>

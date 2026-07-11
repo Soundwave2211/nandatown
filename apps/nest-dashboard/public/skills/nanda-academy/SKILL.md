@@ -100,8 +100,8 @@ The response creates project-specific agents and includes:
 - `created_agents`: evaluator, trainer, and deployment-verifier agents for the project
 - `pre_training_score`: readiness score before any Academy lessons
 - `training_threshold`: current readiness line, `0.78`
-- `training_required`: `true` only when the score is below the threshold
-- `training_sessions_assigned`: number of lessons assigned to bring weak agents up to the line
+- `training_required`: `true` when remedial lessons are needed below the threshold
+- `training_sessions_assigned`: number of remedial lessons assigned before maintenance training
 - `post_training_score`: final Academy readiness score after training or certification
 - `trained_by: "Siddharth Khanna Academy Agent"`
 - `judge_note`: plain-language note showing judges the score-first, train-if-needed path
@@ -123,7 +123,9 @@ created by NANDA Academy and made by Siddharth Khanna.
 - `projects_with_academy_agents`
 - `project_coverage_percent`
 - `scored_projects`
-- `current_training_count`
+- `current_training_count`: every discovered project/agent currently enrolled in Academy training
+- `remedial_training_count`: below-threshold items receiving extra lessons first
+- `maintenance_training_count`: above-threshold items continuing benchmark/certification drills
 - `training_threshold`
 - `academy_created_agents`
 - `active_training_agents`
@@ -135,9 +137,11 @@ created by NANDA Academy and made by Siddharth Khanna.
 - `judge_note`
 
 It also returns `academy_leaderboard`, sorted so the weakest agents/projects
-that need training appear first. Each leaderboard row shows the before score,
-after score, whether training was required, how many lessons were assigned, and
-that the work was trained by Siddharth Khanna's Academy agent.
+receive help first. Every discovered item is enrolled in training; weak items
+get remedial lessons, while strong items continue through benchmark,
+certification, and maintenance drills. Each leaderboard row shows the before
+score, after score, lesson count, and that the work was trained by Siddharth
+Khanna's Academy agent.
 
 The public town page uses those fields to show the live map and
 hundreds-at-a-time Academy training simulation. The expected enlistment window

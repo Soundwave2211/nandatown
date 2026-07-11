@@ -129,7 +129,9 @@ async function liveTownSnapshot() {
   const academyCreatedAgents = projects.reduce((sum, project) => sum + project.created_agents.length, 0);
   const projectsWithAcademyAgents = projects.filter((project) => project.created_agents.length > 0).length;
   const scoredProjects = projects.filter((project) => typeof project.pre_training_score === "number").length;
-  const currentTrainingCount = projects.filter((project) => project.training_required).length;
+  const remedialTrainingCount = projects.filter((project) => project.training_required).length;
+  const currentTrainingCount = projects.length;
+  const maintenanceTrainingCount = Math.max(0, currentTrainingCount - remedialTrainingCount);
   const uploadedModelsEnlisted = projects.filter((project) => project.source === "uploaded_model").length;
   const trainingBatchesRunning = Math.max(4, Math.ceil(projects.length / 2));
   const activeTrainingAgents = Math.max(128, currentTrainingCount * 36);
@@ -171,6 +173,8 @@ async function liveTownSnapshot() {
       project_coverage_percent: projects.length > 0 ? Math.round((projectsWithAcademyAgents / projects.length) * 100) : 100,
       scored_projects: scoredProjects,
       current_training_count: currentTrainingCount,
+      remedial_training_count: remedialTrainingCount,
+      maintenance_training_count: maintenanceTrainingCount,
       training_threshold: 0.78,
       academy_created_agents: academyCreatedAgents,
       active_training_agents: activeTrainingAgents,
@@ -186,7 +190,7 @@ async function liveTownSnapshot() {
           ? "All uploaded projects, agent/model uploads, and official agents in this feed have Academy-created agents."
           : "Academy is creating agents for newly discovered projects.",
       judge_note:
-        "Every row is scored first. Only rows below the 78% readiness threshold are trained by Siddharth Khanna's Academy agent; rows already above the line are certified without extra training.",
+        "Every discovered project or agent is actively trained by Siddharth Khanna's Academy agent. Rows below the 78% readiness threshold get remedial lessons first; rows already above the line stay in maintenance training and certification.",
     },
     academy_leaderboard: academyLeaderboard,
     project_count: projects.length,
