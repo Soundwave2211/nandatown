@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { processUploadedProject } from "@/lib/academy-service";
 import { createSkill, listSkills, type SkillSourceType } from "@/lib/skills";
 
 // This registry is read/written at request time, never prerendered.
@@ -80,7 +81,15 @@ export async function POST(request: NextRequest) {
       github_username: githubUsername || null,
       submitter_ip: submitterIp,
     });
-    return Response.json({ skill }, { status: 201 });
+    const academy_processing = processUploadedProject({
+      project_id: skill.id,
+      name: skill.name,
+      description: skill.description ?? "Submitted SkillMD project.",
+      source_url: skill.source_url,
+      uploaded_at: skill.created_at,
+      source: "skill_registry",
+    });
+    return Response.json({ skill, academy_processing }, { status: 201 });
   } catch (err) {
     console.error("POST /api/skills failed:", err);
     return Response.json({ error: "Failed to save the SkillMD." }, { status: 500 });

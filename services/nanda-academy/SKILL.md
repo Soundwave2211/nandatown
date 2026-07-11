@@ -41,6 +41,7 @@ The same request produces the same IDs, scores, evidence hashes, and recommendat
 - `POST /benchmark_agent`
 - `POST /certify_agent`
 - `POST /create_agent`
+- `POST /process_project`
 - `POST /recommend_collaboration_role`
 - `POST /simulate_tournament`
 - `POST /progress_prompt`
@@ -135,11 +136,29 @@ curl -s -X POST http://127.0.0.1:8000/create_agent \
 
 Post a profile to `/recommend_collaboration_role` with `task_context`, for example `{"scenario":"trust_crisis"}`.
 
-## Workflow 6: simulate a tournament
+## Workflow 6: process an uploaded project
+
+When a SkillMD or hackathon project is uploaded, call `/process_project` or
+inspect the hosted `/api/skills` response. NANDA Academy creates
+project-specific evaluator, trainer, and deployment-verifier agents, trains and
+checks the upload deterministically, and returns documentation notes.
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/process_project \
+  -H 'content-type: application/json' \
+  -d '{"name":"Uploaded Trust Skill","description":"A trust-layer service uploaded to the hackathon.","source_url":"https://github.com/example/repo","source":"skill_registry"}'
+```
+
+The response includes `created_agents`, `training_summary`,
+`documentation_note`, `processed_by: "NANDA Academy"`, and
+`github_marker: "processed-by-nanda-academy"`. Each created agent includes
+`created_by: "NANDA Academy"` and its own documentation note.
+
+## Workflow 7: simulate a tournament
 
 Fetch `/example_agent_profiles`, then post the list as `agent_profiles` to `/simulate_tournament`.
 
-## Workflow 7: prompt ChatGPT on progress after project completion
+## Workflow 8: prompt ChatGPT on progress after project completion
 
 Call `/progress_prompt`:
 

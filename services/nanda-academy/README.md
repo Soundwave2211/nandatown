@@ -12,6 +12,9 @@ real-time Academy view with:
 
 - `processed_by: "NANDA Academy"`
 - `github_marker: "processed-by-nanda-academy"`
+- `created_agents`, the evaluator/trainer/verifier agents created for the project
+- `training_summary`, the deterministic Academy teaching/readiness summary
+- `documentation_note`, the note to copy wherever generated agents are documented
 - `academy_status` such as `evaluating`, `curriculum_assigned`, `training`, `benchmarking`, or `certified`
 - `assigned_agent`, chosen from the official NANDA Town agent templates
 - `source`, either `skill_registry`, `hackathon_submission`, or `seeded`
@@ -20,6 +23,10 @@ When the registry database is available, SkillMD uploads are read at request
 time. Hackathon marketplace submissions are included from the deployed
 `hackathon-data.json` dataset so the town view can show uploaded projects moving
 through NANDA Academy without human intervention.
+
+The hosted `/api/skills` upload route also returns `academy_processing`
+immediately after saving a SkillMD. That record creates project-specific agents
+and marks each generated agent with `created_by: "NANDA Academy"`.
 
 ## Architecture
 
@@ -30,7 +37,7 @@ through NANDA Academy without human intervention.
 
 ## Endpoints
 
-`GET /health`, `GET /capabilities`, `GET /example_agent_profiles`, `POST /evaluate_agent`, `POST /generate_curriculum`, `POST /run_training`, `POST /benchmark_agent`, `POST /certify_agent`, `POST /create_agent`, `POST /recommend_collaboration_role`, `POST /simulate_tournament`, `POST /progress_prompt`, `GET /demo`, and `GET /demo/city`.
+`GET /health`, `GET /capabilities`, `GET /example_agent_profiles`, `POST /evaluate_agent`, `POST /generate_curriculum`, `POST /run_training`, `POST /benchmark_agent`, `POST /certify_agent`, `POST /create_agent`, `POST /process_project`, `POST /recommend_collaboration_role`, `POST /simulate_tournament`, `POST /progress_prompt`, `GET /demo`, and `GET /demo/city`.
 
 `/progress_prompt` creates a paste-ready ChatGPT progress-review prompt for project completion or handoff.
 

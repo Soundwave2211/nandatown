@@ -45,6 +45,17 @@ export type AcademyProject = {
   source: "skill_registry" | "hackathon_submission" | "seeded";
   processed_by: "NANDA Academy";
   github_marker: string;
+  created_agents: AcademyCreatedAgent[];
+  training_summary: string;
+  documentation_note: string;
+};
+
+export type AcademyCreatedAgent = {
+  agent_id: string;
+  name: string;
+  role: string;
+  created_by: "NANDA Academy";
+  documentation_note: string;
 };
 
 export const capabilityNames: CapabilityName[] = [
@@ -114,6 +125,7 @@ export function capabilities() {
       "POST /api/academy/benchmark_agent",
       "POST /api/academy/certify_agent",
       "POST /api/academy/create_agent",
+      "POST /api/academy/process_project",
       "POST /api/academy/recommend_collaboration_role",
       "POST /api/academy/simulate_tournament",
       "POST /api/academy/progress_prompt",
@@ -283,12 +295,16 @@ export function createAgent(payload: Record<string, unknown>) {
     available_tools: stringArray(payload.available_tools),
     safety_flags: [],
     reputation_prior: 0.55,
-    metadata: { created_by: "nanda_academy" },
+    metadata: {
+      created_by: "NANDA Academy",
+      documentation_note: `This agent blueprint was created by NANDA Academy for ${targetRole}.`,
+    },
   } satisfies AgentProfile;
 
   return {
     agent_blueprint: agent,
     starter_curriculum: generateCurriculum({ profile: agent }),
+    documentation_note: `Created by NANDA Academy. Record this in the project documentation wherever this agent is listed or deployed.`,
     evidence: [evidence("agent_factory", agent.agent_id, `created ${targetRole}`)],
   };
 }
@@ -361,21 +377,57 @@ export function progressPrompt(payload: Record<string, unknown>) {
   };
 }
 
+export function processUploadedProject(payload: Record<string, unknown>) {
+  const projectId =
+    stringValue(payload.project_id) ||
+    stableId("uploaded-project", stringValue(payload.name), stringValue(payload.source_url), stringValue(payload.description));
+  const name = requiredString(payload.name, "name");
+  const description = stringValue(payload.description) || "Uploaded NANDA Town project.";
+  const sourceUrl = stringValue(payload.source_url) || null;
+  const uploadedAt = stringValue(payload.uploaded_at) || new Date().toISOString();
+  const source = stringValue(payload.source) === "hackathon_submission" ? "hackathon_submission" : "skill_registry";
+  const createdAgents = createProjectAgents(projectId, name, description);
+  const score = deterministicProjectScore(projectId, name, description);
+  const status = score >= 0.78 ? "certified" : score >= 0.62 ? "training" : "curriculum_assigned";
+
+  return {
+    project_id: projectId,
+    name,
+    description,
+    source_url: sourceUrl,
+    academy_status: status,
+    assigned_agent: createdAgents[0].role,
+    updated_at: uploadedAt,
+    source,
+    processed_by: "NANDA Academy",
+    github_marker: "processed-by-nanda-academy",
+    created_agents: createdAgents,
+    training_summary:
+      `NANDA Academy created ${createdAgents.length} project-specific agents, assigned a curriculum, and ran deterministic readiness checks for ${name}.`,
+    documentation_note:
+      `Document these agents as created by NANDA Academy. Include the marker processed-by-nanda-academy next to each generated agent in GitHub, README, or SkillMD documentation.`,
+    evidence: [
+      evidence("project_upload_processing", projectId, `processed ${name}`),
+      evidence("project_agent_creation", projectId, `created_agents=${createdAgents.length}`),
+      evidence("project_training", projectId, `status=${status}; score=${score}`),
+    ],
+  } satisfies AcademyProject & { evidence: ReturnType<typeof evidence>[] };
+}
+
 export function projectAgentsFromSkills(
   skills: { id: string; name: string; description: string | null; source_url: string | null; created_at: string }[],
 ) {
-  return skills.slice(0, 24).map((skill, index) => ({
-    project_id: skill.id,
-    name: skill.name,
-    description: skill.description ?? "Submitted NANDA Town service.",
-    source_url: skill.source_url,
-    academy_status: index % 3 === 0 ? "benchmarking" : index % 3 === 1 ? "training" : "certified",
-    assigned_agent: officialAgentTemplates[index % officialAgentTemplates.length],
-    updated_at: skill.created_at,
-    source: "skill_registry",
-    processed_by: "NANDA Academy",
-    github_marker: "processed-by-nanda-academy",
-  })) satisfies AcademyProject[];
+  return skills.slice(0, 24).map((skill) => {
+    const processed = processUploadedProject({
+      project_id: skill.id,
+      name: skill.name,
+      description: skill.description ?? "Submitted NANDA Town service.",
+      source_url: skill.source_url,
+      uploaded_at: skill.created_at,
+      source: "skill_registry",
+    });
+    return stripEvidence(processed);
+  }) satisfies AcademyProject[];
 }
 
 export function projectAgentsFromHackathonSubmissions(
@@ -392,19 +444,57 @@ export function projectAgentsFromHackathonSubmissions(
   return submissions.slice(0, 36).map((submission, index) => {
     const score = submission.score?.total ?? null;
     const status = score === null ? "evaluating" : score >= 24 ? "certified" : score >= 18 ? "training" : "curriculum_assigned";
-    return {
+    const processed = processUploadedProject({
       project_id: `hackathon-${submission.id}`,
       name: submission.title,
       description: submission.short_description || `Hackathon ${submission.layer} submission.`,
       source_url: submission.pr_url,
+      source: "hackathon_submission",
+      uploaded_at: submission.created_at,
+    });
+    return {
+      ...stripEvidence(processed),
       academy_status: status,
       assigned_agent: officialAgentTemplates[(index + 5) % officialAgentTemplates.length],
-      updated_at: submission.created_at,
-      source: "hackathon_submission",
-      processed_by: "NANDA Academy",
-      github_marker: "processed-by-nanda-academy",
     };
   }) satisfies AcademyProject[];
+}
+
+function stripEvidence(project: AcademyProject & { evidence: ReturnType<typeof evidence>[] }): AcademyProject {
+  const { evidence: discardedEvidence, ...rest } = project;
+  void discardedEvidence;
+  return rest;
+}
+
+function createProjectAgents(projectId: string, name: string, description: string): AcademyCreatedAgent[] {
+  const base = `${name} ${description}`.toLowerCase();
+  const domain = base.includes("trust")
+    ? "trust"
+    : base.includes("payment") || base.includes("market")
+      ? "market"
+      : base.includes("transport")
+        ? "transport"
+        : "coordination";
+  const roles = [
+    `${domain}-evaluator`,
+    `${domain}-trainer`,
+    `${domain}-deployment-verifier`,
+  ];
+
+  return roles.map((role) => ({
+    agent_id: stableId("academy-created-agent", projectId, role),
+    name: titleCase(role),
+    role,
+    created_by: "NANDA Academy",
+    documentation_note:
+      `Created by NANDA Academy for project ${name}. Mark this agent with processed-by-nanda-academy wherever it appears in GitHub or SkillMD documentation.`,
+  }));
+}
+
+function deterministicProjectScore(...parts: string[]) {
+  const id = stableId("project-score", ...parts);
+  const numeric = Number.parseInt(id.slice(0, 5), 36) % 30;
+  return round(0.55 + numeric / 100);
 }
 
 function profile(

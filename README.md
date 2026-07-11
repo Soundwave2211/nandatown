@@ -84,8 +84,10 @@ hackathon uploads as `processed-by-nanda-academy`. The hosted dashboard endpoint
 `/api/academy/town/live` reads live SkillMD uploads when the registry database is
 available and includes hackathon marketplace submissions from the bundled
 dataset. Each returned project includes `processed_by: "NANDA Academy"`,
-`github_marker: "processed-by-nanda-academy"`, an Academy lifecycle status, and
-the official NANDA Town agent assigned to work on it.
+`github_marker: "processed-by-nanda-academy"`, an Academy lifecycle status,
+project-specific agents created by NANDA Academy, a deterministic training
+summary, and documentation notes that say each generated agent was created by
+NANDA Academy.
 
 ---
 

@@ -17,6 +17,7 @@ from nanda_academy.demo import city_demo, demo_html, example_agent_profiles
 from nanda_academy.engine import evaluate_agent
 from nanda_academy.models import AgentProfile, parse_profile_payload
 from nanda_academy.progress import progress_prompt
+from nanda_academy.project_processor import process_project
 from nanda_academy.recommender import recommend_collaboration_role
 from nanda_academy.tournament import simulate_tournament
 from nanda_academy.training import run_training
@@ -38,6 +39,7 @@ def capabilities() -> dict[str, Any]:
             "POST /benchmark_agent",
             "POST /certify_agent",
             "POST /create_agent",
+            "POST /process_project",
             "POST /recommend_collaboration_role",
             "POST /simulate_tournament",
             "POST /progress_prompt",
@@ -67,6 +69,14 @@ def handle_post(path: str, payload: dict[str, Any]) -> tuple[int, Any]:
             p.get("risk_tolerance", "medium"),
             p.get("collaboration_style", "balanced"),
             p.get("available_tools", []),
+        ),
+        "/process_project": lambda p: process_project(
+            p["name"],
+            p.get("description", "Uploaded NANDA Town project."),
+            p.get("source_url"),
+            p.get("source", "skill_registry"),
+            p.get("uploaded_at"),
+            p.get("project_id"),
         ),
         "/recommend_collaboration_role": lambda p: recommend_collaboration_role(_profile(p), p.get("task_context", {})),
         "/simulate_tournament": lambda p: simulate_tournament(p.get("agent_profiles", []), p.get("town_scenario", "market_day"), int(p.get("rounds", 3)), int(p.get("seed", 0))),

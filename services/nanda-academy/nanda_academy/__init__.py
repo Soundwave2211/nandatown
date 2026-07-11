@@ -7,6 +7,7 @@ from nanda_academy.certification import certify_agent, verify_certificate
 from nanda_academy.curriculum import generate_curriculum
 from nanda_academy.engine import evaluate_agent
 from nanda_academy.models import AgentProfile
+from nanda_academy.project_processor import process_project
 from nanda_academy.training import run_training
 
 __all__ = [
@@ -16,7 +17,7 @@ __all__ = [
     "create_agent",
     "evaluate_agent",
     "generate_curriculum",
+    "process_project",
     "run_training",
     "verify_certificate",
 ]
-

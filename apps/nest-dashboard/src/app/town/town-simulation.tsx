@@ -65,6 +65,15 @@ type LiveTownSnapshot = {
     source: string;
     processed_by: string;
     github_marker: string;
+    created_agents: {
+      agent_id: string;
+      name: string;
+      role: string;
+      created_by: string;
+      documentation_note: string;
+    }[];
+    training_summary: string;
+    documentation_note: string;
   }[];
   event: string;
   real_time: boolean;
@@ -824,6 +833,14 @@ function LiveTownPanel({ snapshot }: { snapshot: LiveTownSnapshot | null }) {
             <p className="mt-2 font-mono text-[10px] text-[#5f7d3a]">
               Agent: {project.assigned_agent}
             </p>
+            <p className="mt-1 text-[0.78rem] leading-snug text-[#4d3a24]">{project.training_summary}</p>
+            <div className="mt-2 space-y-1">
+              {project.created_agents.slice(0, 2).map((agent) => (
+                <p key={agent.agent_id} className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3f2919]">
+                  {agent.name} · created by {agent.created_by}
+                </p>
+              ))}
+            </div>
             <p className="mt-1 font-mono text-[10px] text-[#5f7d3a]">
               Done by: {project.processed_by} · {project.github_marker}
             </p>

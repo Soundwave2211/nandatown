@@ -60,6 +60,7 @@ Requests are deterministic. The same profile produces the same readiness class, 
 - `POST /api/academy/benchmark_agent`
 - `POST /api/academy/certify_agent`
 - `POST /api/academy/create_agent`
+- `POST /api/academy/process_project`
 - `POST /api/academy/recommend_collaboration_role`
 - `POST /api/academy/simulate_tournament`
 - `POST /api/academy/progress_prompt`
@@ -74,6 +75,29 @@ Requests are deterministic. The same profile produces the same readiness class, 
 6. Call `POST /api/academy/benchmark_agent`.
 7. Call `POST /api/academy/certify_agent`.
 8. Call `GET /api/academy/town/live` to see current NANDA Town projects and assigned official agents.
+
+## Workflow: process an uploaded project
+
+When a SkillMD/project is uploaded through `POST /api/skills`, NANDA Academy
+automatically processes that upload and returns an `academy_processing` object.
+Agents can also call the Academy directly:
+
+```bash
+curl -s -X POST "$BASE/process_project" \
+  -H "content-type: application/json" \
+  -d '{"name":"My Agent Service","description":"A service uploaded for NANDA Town agents.","source_url":"https://github.com/example/repo","source":"skill_registry"}'
+```
+
+The response creates project-specific agents and includes:
+
+- `created_agents`: evaluator, trainer, and deployment-verifier agents for the project
+- `training_summary`: the deterministic Academy training/readiness summary
+- `documentation_note`: text that should be copied into GitHub, README, or SkillMD docs
+- `processed_by: "NANDA Academy"`
+- `github_marker: "processed-by-nanda-academy"`
+
+Every created agent includes `created_by: "NANDA Academy"` and a
+`documentation_note` saying it was created by NANDA Academy.
 
 ## Request schema for agent endpoints
 

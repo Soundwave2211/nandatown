@@ -9,6 +9,7 @@ import {
   exampleAgentProfiles,
   generateCurriculum,
   officialAgentTemplates,
+  processUploadedProject,
   progressPrompt,
   projectAgentsFromHackathonSubmissions,
   projectAgentsFromSkills,
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     "/benchmark_agent": benchmarkAgent,
     "/certify_agent": certifyAgent,
     "/create_agent": createAgent,
+    "/process_project": processUploadedProject,
     "/recommend_collaboration_role": recommendCollaborationRole,
     "/simulate_tournament": simulateTournament,
     "/progress_prompt": progressPrompt,
@@ -163,6 +165,17 @@ function seededProjects(): AcademyProject[] {
       source: "seeded",
       processed_by: "NANDA Academy",
       github_marker: "processed-by-nanda-academy",
+      created_agents: [
+        {
+          agent_id: "academy-seed-evaluator",
+          name: "Academy Seed Evaluator",
+          role: "academy-evaluator",
+          created_by: "NANDA Academy",
+          documentation_note: "Created by NANDA Academy for the seeded Academy project.",
+        },
+      ],
+      training_summary: "NANDA Academy seeded this project with an evaluator agent and certified readiness state.",
+      documentation_note: "Document this seeded agent as created by NANDA Academy.",
     },
     {
       project_id: "town-map",
@@ -175,6 +188,17 @@ function seededProjects(): AcademyProject[] {
       source: "seeded",
       processed_by: "NANDA Academy",
       github_marker: "processed-by-nanda-academy",
+      created_agents: [
+        {
+          agent_id: "town-map-seed-trainer",
+          name: "Town Map Seed Trainer",
+          role: "town-map-trainer",
+          created_by: "NANDA Academy",
+          documentation_note: "Created by NANDA Academy for the seeded town map project.",
+        },
+      ],
+      training_summary: "NANDA Academy seeded this project with a trainer agent and training state.",
+      documentation_note: "Document this seeded agent as created by NANDA Academy.",
     },
   ];
 }
