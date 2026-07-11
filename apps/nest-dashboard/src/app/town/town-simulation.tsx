@@ -41,6 +41,7 @@ type AgentAvatar = {
 type Building = {
   id: BuildingId;
   name: string;
+  sign: string;
   short: string;
   x: string;
   y: string;
@@ -99,6 +100,7 @@ const buildings: Building[] = [
   {
     id: "arrival",
     name: "Arrival Gate",
+    sign: "Arrival",
     short: "Untested agents enter town here.",
     x: "4%",
     y: "72%",
@@ -109,6 +111,7 @@ const buildings: Building[] = [
   {
     id: "protocol",
     name: "Protocol Lab",
+    sign: "Protocol",
     short: "The 12 layer stack: transport through data facts.",
     x: "7%",
     y: "8%",
@@ -119,6 +122,7 @@ const buildings: Building[] = [
   {
     id: "evaluation",
     name: "Evaluation Hall",
+    sign: "Evaluate",
     short: "Profiles are scored against evidence, not self-claims.",
     x: "23%",
     y: "63%",
@@ -129,6 +133,7 @@ const buildings: Building[] = [
   {
     id: "curriculum",
     name: "Curriculum Studio",
+    sign: "Curriculum",
     short: "Weaknesses become ordered lessons.",
     x: "38%",
     y: "70%",
@@ -139,6 +144,7 @@ const buildings: Building[] = [
   {
     id: "training",
     name: "Training Gym",
+    sign: "Training",
     short: "Agents practice deterministic drills.",
     x: "55%",
     y: "64%",
@@ -149,6 +155,7 @@ const buildings: Building[] = [
   {
     id: "benchmark",
     name: "Benchmark Arena",
+    sign: "Benchmark",
     short: "Adversarial tasks test readiness.",
     x: "69%",
     y: "58%",
@@ -159,6 +166,7 @@ const buildings: Building[] = [
   {
     id: "certification",
     name: "Certification Office",
+    sign: "Certify",
     short: "Certificates are proof objects backed by evidence.",
     x: "81%",
     y: "39%",
@@ -169,6 +177,7 @@ const buildings: Building[] = [
   {
     id: "deployment",
     name: "Deployment Gate",
+    sign: "Deploy",
     short: "Certified agents leave for town roles.",
     x: "83%",
     y: "72%",
@@ -179,6 +188,7 @@ const buildings: Building[] = [
   {
     id: "foundry",
     name: "Agent Foundry",
+    sign: "Foundry",
     short: "Blueprints are created before training.",
     x: "36%",
     y: "43%",
@@ -189,6 +199,7 @@ const buildings: Building[] = [
   {
     id: "market",
     name: "Market Square",
+    sign: "Market",
     short: "Negotiators and mediators trade safely.",
     x: "11%",
     y: "43%",
@@ -199,6 +210,7 @@ const buildings: Building[] = [
   {
     id: "trust",
     name: "Trust Registry",
+    sign: "Trust",
     short: "Auditors verify claims and provenance.",
     x: "64%",
     y: "12%",
@@ -209,6 +221,7 @@ const buildings: Building[] = [
   {
     id: "coordination",
     name: "Coordination Hall",
+    sign: "Coordinate",
     short: "Leaders coordinate teams under uncertainty.",
     x: "44%",
     y: "25%",
@@ -219,6 +232,7 @@ const buildings: Building[] = [
   {
     id: "scenario",
     name: "Scenario District",
+    sign: "Scenarios",
     short: "Marketplace, voting, consensus, supply chain, reputation.",
     x: "71%",
     y: "33%",
@@ -229,6 +243,7 @@ const buildings: Building[] = [
   {
     id: "observatory",
     name: "Trace Observatory",
+    sign: "Trace",
     short: "Traces, validators, metrics, reports, and Academy evidence.",
     x: "18%",
     y: "20%",
@@ -239,6 +254,7 @@ const buildings: Building[] = [
   {
     id: "crisis",
     name: "Crisis Response Centre",
+    sign: "Crisis",
     short: "Certified crisis agents deploy here.",
     x: "68%",
     y: "76%",
@@ -249,6 +265,7 @@ const buildings: Building[] = [
   {
     id: "housing",
     name: "Agent Housing",
+    sign: "Housing",
     short: "Idle certified agents wait for assignments.",
     x: "4%",
     y: "25%",
@@ -369,20 +386,16 @@ function visibleEvents(tick: number) {
 
 export function TownSimulation() {
   const [tick, setTick] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [speed, setSpeed] = useState<"calm" | "busy">("calm");
   const [selectedAgent, setSelectedAgent] = useState(agents[0].id);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingId>("evaluation");
   const [liveTown, setLiveTown] = useState<LiveTownSnapshot | null>(null);
 
   useEffect(() => {
-    if (paused) return;
-    const intervalMs = speed === "calm" ? 1400 : 700;
     const id = window.setInterval(() => {
       setTick((value) => value + 1);
-    }, intervalMs);
+    }, 1000);
     return () => window.clearInterval(id);
-  }, [paused, speed]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -408,7 +421,6 @@ export function TownSimulation() {
 
   const selectedAgentData = agents.find((agent) => agent.id === selectedAgent) ?? agents[0];
   const { stage: selectedStage } = getStage(selectedAgentData, tick);
-  const selectedBuildingData = buildingById[selectedBuilding];
   const events = useMemo(() => visibleEvents(tick), [tick]);
   const operations = liveTown?.academy_operations;
   const coveredProjects = operations?.projects_with_academy_agents ?? liveTown?.project_count ?? 2;
@@ -417,10 +429,6 @@ export function TownSimulation() {
     operations?.academy_created_agents ??
     liveTown?.projects.reduce((sum, project) => sum + project.created_agents.length, 0) ??
     6;
-  const agentsForBuilding = agents.filter((agent) => {
-    const { stage } = getStage(agent, tick);
-    return stage.building === selectedBuilding || stage.next === selectedBuilding;
-  });
   const coveragePercent = operations?.project_coverage_percent ?? 100;
   const totalProjects = liveTown?.project_count ?? coveredProjects;
 
@@ -468,104 +476,51 @@ export function TownSimulation() {
               );
             })}
 
-            <div className="absolute left-4 top-4 max-w-[440px] rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] px-4 py-3 shadow-[4px_4px_0_#8a5a2f] sm:left-6 sm:top-6">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
-                Made by Siddharth Khanna · live Academy map
-              </p>
-              <h1 className="mt-2 font-display text-[clamp(1.65rem,3.1vw,3.5rem)] leading-none text-[#3f2919]">
-                Agents training in real time.
-              </h1>
-              <p className="mt-2 text-[0.92rem] leading-relaxed text-[#3f2919]">
-                New projects enter at the gate. The Academy creates evaluator,
-                trainer, and verifier agents, then moves them through lessons,
-                benchmarks, certificates, and deployment.
-              </p>
-            </div>
-
-            <div className="absolute right-4 top-4 hidden w-[min(440px,calc(100%-2rem))] grid-cols-2 gap-2 sm:right-6 sm:top-6 md:grid">
-              <HeroStat label="Projects covered" value={`${coveredProjects}/${totalProjects}`} />
-              <HeroStat label="Coverage" value={`${coveragePercent}%`} />
-              <HeroStat label="Created agents" value={String(academyCreatedAgents)} />
-              <HeroStat label="Training now" value={`${activeTrainingAgents}+`} />
-            </div>
-
-            <div className="absolute bottom-4 right-4 hidden w-[min(390px,calc(100%-2rem))] rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] p-4 shadow-[5px_5px_0_#8a5a2f] sm:bottom-6 sm:right-6 md:block">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
-                Training batches
-              </p>
-              <p className="mt-1 text-[0.82rem] leading-snug text-[#3f2919]">
-                {activeTrainingAgents}+ Academy agents cycling through lessons across{" "}
-                {operations?.training_batches_running ?? 4} batches.
-              </p>
-              <div
-                className="mt-3 grid gap-1 [grid-template-columns:repeat(18,minmax(0,1fr))]"
-                aria-label={`${activeTrainingAgents} Academy agents training now`}
-              >
-                {visibleTrainingAgents.map((index) => (
-                  <span
-                    key={index}
-                    className="h-2 w-2 rounded-sm border border-[#3f2919] bg-[#5f7d3a]"
-                    style={{ opacity: 0.35 + ((index + tick) % 6) * 0.1 }}
-                  />
-                ))}
-              </div>
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
-                New this wave: {operations?.newly_started_agents_this_wave ?? 12}
-              </p>
-            </div>
-
-            <div className="absolute bottom-4 left-4 hidden w-[min(430px,calc(100%-2rem))] rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] p-4 shadow-[5px_5px_0_#8a5a2f] sm:bottom-6 sm:left-6 md:block">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
-                Selected: {selectedAgentData.name}
-              </p>
-              <p className="mt-1 font-display text-2xl leading-none text-[#3f2919]">
-                {selectedStage.state}
-              </p>
-              <p className="mt-2 text-[0.86rem] leading-relaxed text-[#3f2919]">
-                Current building: {selectedBuildingData.name}. Next stop:{" "}
-                {buildingById[selectedStage.next].name}. {agentsForBuilding.length} agent
-                {agentsForBuilding.length === 1 ? "" : "s"} here or heading here.
-              </p>
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]" aria-live="polite">
-                {events[0]}
-              </p>
-            </div>
-
-            <div className="absolute left-1/2 top-4 hidden -translate-x-1/2 gap-2 lg:flex">
-              <button
-                type="button"
-                onClick={() => setPaused((value) => !value)}
-                className="rounded-md border-4 border-[#5d3b23] bg-[#c8894a] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.18em] text-[#fff3c9] shadow-[4px_4px_0_#3f2919]"
-              >
-                {paused ? "Resume" : "Pause"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSpeed((value) => (value === "calm" ? "busy" : "calm"))}
-                className="rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.18em] text-[#3f2919] shadow-[4px_4px_0_#3f2919]"
-              >
-                {speed === "calm" ? "Calm" : "Busy"}
-              </button>
-            </div>
-
-            <div className="absolute bottom-3 left-3 right-3 rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] p-3 shadow-[4px_4px_0_#8a5a2f] md:hidden">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#5f7d3a]">
-                Live: {activeTrainingAgents}+ agents training · {coveragePercent}% coverage
-              </p>
-              <p className="mt-1 text-[0.82rem] leading-snug text-[#3f2919]">
-                Tap agents or buildings to inspect the Academy path.
-              </p>
-            </div>
           </div>
         </div>
       </section>
 
       <section className="border-b-4 border-[#5d3b23] bg-[#fff3c9] px-5 py-7 sm:px-8">
-        <div className="mx-auto max-w-[980px] text-center">
+        <div className="mx-auto max-w-[1120px]">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#5f7d3a]">
-            Small writeup
+            Made by Siddharth Khanna · live Academy map
           </p>
-          <p className="mt-3 text-[1rem] leading-relaxed text-[#3f2919] sm:text-[1.08rem]">
+          <h1 className="mt-3 font-display text-[clamp(2rem,4vw,3.7rem)] leading-none text-[#3f2919]">
+            Agents training in real time.
+          </h1>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <HeroStat label="Projects covered" value={`${coveredProjects}/${totalProjects}`} />
+            <HeroStat label="Coverage" value={`${coveragePercent}%`} />
+            <HeroStat label="Created agents" value={String(academyCreatedAgents)} />
+            <HeroStat label="Training now" value={`${activeTrainingAgents}+`} />
+          </div>
+          <div className="mt-6 rounded-md border-4 border-[#5d3b23] bg-[#f5d087] p-4 shadow-[5px_5px_0_#c8894a]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
+              Training batches
+            </p>
+            <p className="mt-2 text-[0.92rem] leading-relaxed text-[#3f2919]">
+              {activeTrainingAgents}+ Academy agents are cycling through lessons across{" "}
+              {operations?.training_batches_running ?? 4} batches. New projects enter at the
+              gate; the Academy creates evaluator, trainer, and verifier agents, then moves
+              them through lessons, benchmarks, certificates, and deployment.
+            </p>
+            <div
+              className="mt-4 grid gap-1 [grid-template-columns:repeat(24,minmax(0,1fr))] sm:[grid-template-columns:repeat(36,minmax(0,1fr))]"
+              aria-label={`${activeTrainingAgents} Academy agents training now`}
+            >
+              {visibleTrainingAgents.map((index) => (
+                <span
+                  key={index}
+                  className="h-2 w-2 rounded-sm border border-[#3f2919] bg-[#5f7d3a]"
+                  style={{ opacity: 0.35 + ((index + tick) % 6) * 0.1 }}
+                />
+              ))}
+            </div>
+            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
+              Selected agent: {selectedAgentData.name} · {selectedStage.state} · latest: {events[0]}
+            </p>
+          </div>
+          <p className="mt-6 text-[1rem] leading-relaxed text-[#3f2919] sm:text-[1.08rem]">
             This project turns a SkillMD service into a live agent academy. Agents can read the
             hosted SkillMD, call the endpoints without human help, evaluate themselves, generate a
             curriculum, train, benchmark, certify, and create new project-specific agents. The map
@@ -689,6 +644,9 @@ function PixelBuilding({
         className="relative mx-auto block h-24 border-4 border-[#3f2919] shadow-[8px_8px_0_rgba(63,41,25,.35)]"
         style={{ backgroundColor: building.color }}
       >
+        <span className="absolute left-1/2 top-2 max-w-[calc(100%-16px)] -translate-x-1/2 rounded-sm border-2 border-[#3f2919] bg-[#fff3c9] px-1.5 py-0.5 text-center font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-[#3f2919] shadow-[1px_1px_0_#8a5a2f]">
+          {building.sign}
+        </span>
         <span className="absolute left-3 top-4 h-5 w-5 border-2 border-[#3f2919] bg-[#ffe08a]" />
         <span className="absolute right-3 top-4 h-5 w-5 border-2 border-[#3f2919] bg-[#ffe08a]" />
         <span className="absolute bottom-0 left-1/2 h-10 w-8 -translate-x-1/2 border-2 border-b-0 border-[#3f2919] bg-[#5d3b23]" />
@@ -697,10 +655,6 @@ function PixelBuilding({
             {agents.length}
           </span>
         )}
-      </span>
-      <span className="mx-auto mt-2 block w-max rounded-sm border-2 border-[#3f2919] bg-[#fff3c9] px-2 py-1 text-center font-mono text-[10px] leading-tight text-[#3f2919] shadow-[2px_2px_0_#8a5a2f]">
-        <span className="block">{building.name}</span>
-        <span className="block text-[#5f7d3a]">{building.short}</span>
       </span>
     </button>
   );
