@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type BuildingId =
   | "arrival"
@@ -94,6 +94,7 @@ type LiveTownSnapshot = {
     newly_started_agents_this_wave: number;
     training_wave: number;
     official_agents_enlisted?: number;
+    uploaded_models_enlisted?: number;
     upload_enlistment_sla_seconds?: number;
     goal: string;
     status: string;
@@ -283,17 +284,10 @@ const buildingById = Object.fromEntries(buildings.map((building) => [building.id
 >;
 
 const stageDuration = 4;
-const visibleTrainingAgents = Array.from({ length: 144 }, (_, index) => index);
 
 function getStage(agent: AgentAvatar, tick: number) {
   const index = Math.floor(tick / stageDuration) % agent.stages.length;
   return { index, stage: agent.stages[index] };
-}
-
-function visibleEvents(tick: number) {
-  const eventCursor = Math.floor(tick / 2);
-  const all = agents.flatMap((agent) => agent.stages.map((stage) => `${agent.name}: ${stage.event}`));
-  return Array.from({ length: 8 }, (_, i) => all[(eventCursor + all.length - i) % all.length]);
 }
 
 export function TownSimulation() {
@@ -331,16 +325,16 @@ export function TownSimulation() {
     };
   }, []);
 
-  const selectedAgentData = agents.find((agent) => agent.id === selectedAgent) ?? agents[0];
-  const { stage: selectedStage } = getStage(selectedAgentData, tick);
-  const events = useMemo(() => visibleEvents(tick), [tick]);
   const operations = liveTown?.academy_operations;
-  const coveredProjects = operations?.projects_with_academy_agents ?? liveTown?.project_count ?? 2;
-  const activeTrainingAgents = operations?.active_training_agents ?? 128;
+  const coveredProjects = operations?.projects_with_academy_agents ?? liveTown?.project_count ?? 26;
+  const activeTrainingAgents = operations?.active_training_agents ?? 936;
+  const officialAgents = operations?.official_agents_enlisted ?? 16;
+  const uploadedModels = operations?.uploaded_models_enlisted ?? 0;
+  const refreshSeconds = Math.round((liveTown?.refresh_interval_ms ?? 2000) / 1000);
   const academyCreatedAgents =
     operations?.academy_created_agents ??
     liveTown?.projects.reduce((sum, project) => sum + project.created_agents.length, 0) ??
-    6;
+    78;
   const coveragePercent = operations?.project_coverage_percent ?? 100;
   const totalProjects = liveTown?.project_count ?? coveredProjects;
 
@@ -403,32 +397,21 @@ export function TownSimulation() {
             <HeroStat label="Projects covered" value={`${coveredProjects}/${totalProjects}`} />
             <HeroStat label="Coverage" value={`${coveragePercent}%`} />
             <HeroStat label="Created agents" value={String(academyCreatedAgents)} />
-            <HeroStat label="Training now" value={`${activeTrainingAgents}+`} />
+            <HeroStat label="Refresh" value={`${refreshSeconds}s`} />
           </div>
           <div className="mt-6 rounded-md border-4 border-[#5d3b23] bg-[#f5d087] p-4 shadow-[5px_5px_0_#c8894a]">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
-              Training batches
+              Academy coverage
             </p>
             <p className="mt-2 text-[0.92rem] leading-relaxed text-[#3f2919]">
-              {activeTrainingAgents}+ Academy agents are cycling through lessons across{" "}
-              {operations?.training_batches_running ?? 4} batches. New projects enter at the
-              gate; the Academy creates evaluator, trainer, and verifier agents, then moves
-              them through lessons, benchmarks, certificates, and deployment.
+              Every SkillMD, hackathon project, official Nanda Town agent, random agent, and
+              uploaded model is enlisted by the Academy feed. Uploads return{" "}
+              <span className="font-semibold">academy_processing</span> immediately, then the
+              map refreshes every {refreshSeconds} seconds while {activeTrainingAgents}+ Academy
+              workers train, benchmark, certify, and deploy created agents.
             </p>
-            <div
-              className="mt-4 grid gap-1 [grid-template-columns:repeat(24,minmax(0,1fr))] sm:[grid-template-columns:repeat(36,minmax(0,1fr))]"
-              aria-label={`${activeTrainingAgents} Academy agents training now`}
-            >
-              {visibleTrainingAgents.map((index) => (
-                <span
-                  key={index}
-                  className="h-2 w-2 rounded-sm border border-[#3f2919] bg-[#5f7d3a]"
-                  style={{ opacity: 0.35 + ((index + tick) % 6) * 0.1 }}
-                />
-              ))}
-            </div>
             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
-              Selected agent: {selectedAgentData.name} · {selectedStage.state} · latest: {events[0]}
+              Official agents enlisted: {officialAgents} · Uploaded agents/models enlisted: {uploadedModels}
             </p>
           </div>
           <p className="mt-6 text-[1rem] leading-relaxed text-[#3f2919] sm:text-[1.08rem]">

@@ -42,7 +42,7 @@ export type AcademyProject = {
   academy_status: string;
   assigned_agent: string;
   updated_at: string;
-  source: "skill_registry" | "hackathon_submission" | "official_agent" | "seeded";
+  source: "skill_registry" | "hackathon_submission" | "official_agent" | "uploaded_model" | "seeded";
   made_by: "Siddharth Khanna";
   processed_by: "NANDA Academy";
   github_marker: string;
@@ -102,6 +102,30 @@ export const officialAgentTemplates = [
   "voting-voter",
 ];
 
+export function academySourceForUpload(input: {
+  name?: unknown;
+  description?: unknown;
+  source_url?: unknown;
+  source_type?: unknown;
+  content?: unknown;
+  tags?: unknown;
+}) {
+  const text = [
+    stringValue(input.name),
+    stringValue(input.description),
+    stringValue(input.source_url),
+    stringValue(input.source_type),
+    stringValue(input.tags),
+    stringValue(input.content).slice(0, 1200),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return /\b(random agent|uploaded agent|agent profile|model upload|uploaded model|llm|gpt|claude|bot)\b/.test(text)
+    ? "uploaded_model"
+    : "skill_registry";
+}
+
 const roleWeights: Record<string, CapabilityName[]> = {
   coordinator: ["coordination", "planning", "communication", "collaboration"],
   leader: ["coordination", "consensus_participation", "resilience", "verification"],
@@ -134,7 +158,6 @@ export function capabilities() {
       "POST /api/academy/process_project",
       "POST /api/academy/recommend_collaboration_role",
       "POST /api/academy/simulate_tournament",
-      "POST /api/academy/progress_prompt",
     ],
   };
 }
@@ -365,29 +388,6 @@ export function simulateTournament(payload: Record<string, unknown>) {
   };
 }
 
-export function progressPrompt(payload: Record<string, unknown>) {
-  const project = stringValue(payload.project) || "NANDA Academy";
-  const completed = stringArray(payload.completed);
-  const tests = stringArray(payload.tests);
-  const risks = stringArray(payload.risks);
-  const nextSteps = stringArray(payload.next_steps);
-
-  return {
-    prompt: [
-      `You are ChatGPT helping Siddharth Khanna review progress on ${project}.`,
-      "",
-      `Summary: ${stringValue(payload.summary) || "Agent-facing service and NANDA Town integration completed."}`,
-      "",
-      `Completed: ${completed.join("; ") || "Academy API, SKILL.md, live town integration"}.`,
-      `Tests: ${tests.join("; ") || "Run endpoint health checks and build checks"}.`,
-      `Risks: ${risks.join("; ") || "Hosted URL and database environment must be verified"}.`,
-      `Next steps: ${nextSteps.join("; ") || "Deploy, test hosted endpoints, submit SKILL.md"}.`,
-      "",
-      "Produce a concise recap, demo story, risks, judge-facing pitch, and next-action checklist.",
-    ].join("\n"),
-  };
-}
-
 export function processUploadedProject(payload: Record<string, unknown>) {
   const projectId =
     stringValue(payload.project_id) ||
@@ -398,9 +398,11 @@ export function processUploadedProject(payload: Record<string, unknown>) {
   const uploadedAt = stringValue(payload.uploaded_at) || new Date().toISOString();
   const requestedSource = stringValue(payload.source);
   const source =
-    requestedSource === "hackathon_submission" || requestedSource === "official_agent"
+    requestedSource === "hackathon_submission" ||
+    requestedSource === "official_agent" ||
+    requestedSource === "uploaded_model"
       ? requestedSource
-      : "skill_registry";
+      : academySourceForUpload(payload);
   const createdAgents = createProjectAgents(projectId, name, description);
   const score = deterministicProjectScore(projectId, name, description);
   const status = score >= 0.78 ? "certified" : score >= 0.62 ? "training" : "curriculum_assigned";
@@ -434,16 +436,26 @@ export function processUploadedProject(payload: Record<string, unknown>) {
 }
 
 export function projectAgentsFromSkills(
-  skills: { id: string; name: string; description: string | null; source_url: string | null; created_at: string }[],
+  skills: {
+    id: string;
+    name: string;
+    description: string | null;
+    source_url: string | null;
+    source_type?: string | null;
+    content?: string | null;
+    tags?: string | null;
+    created_at: string;
+  }[],
 ) {
   return skills.slice(0, 24).map((skill) => {
+    const source = academySourceForUpload(skill);
     const processed = processUploadedProject({
       project_id: skill.id,
       name: skill.name,
       description: skill.description ?? "Submitted NANDA Town service.",
       source_url: skill.source_url,
       uploaded_at: skill.created_at,
-      source: "skill_registry",
+      source,
     });
     return stripEvidence(processed);
   }) satisfies AcademyProject[];

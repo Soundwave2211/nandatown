@@ -10,7 +10,6 @@ import {
   generateCurriculum,
   officialAgentTemplates,
   processUploadedProject,
-  progressPrompt,
   projectAgentsFromHackathonSubmissions,
   projectAgentsFromOfficialAgents,
   projectAgentsFromSkills,
@@ -78,7 +77,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     "/process_project": processUploadedProject,
     "/recommend_collaboration_role": recommendCollaborationRole,
     "/simulate_tournament": simulateTournament,
-    "/progress_prompt": progressPrompt,
   };
 
   const handler = routes[path];
@@ -130,6 +128,7 @@ async function liveTownSnapshot() {
   }
   const academyCreatedAgents = projects.reduce((sum, project) => sum + project.created_agents.length, 0);
   const projectsWithAcademyAgents = projects.filter((project) => project.created_agents.length > 0).length;
+  const uploadedModelsEnlisted = projects.filter((project) => project.source === "uploaded_model").length;
   const trainingBatchesRunning = Math.max(4, Math.ceil(projects.length / 2));
   const activeTrainingAgents = Math.max(128, projects.length * 36);
   const trainingWave = Math.floor(Date.now() / 2000);
@@ -145,7 +144,7 @@ async function liveTownSnapshot() {
     refresh_interval_ms: 2000,
     upload_enlistment_sla_seconds: 2,
     real_time_note:
-      "SkillMD uploads are read at request time, POST /api/skills returns academy_processing immediately, and the public map refreshes every 2 seconds.",
+      "SkillMD, project, agent, and model uploads are read at request time, POST /api/skills returns academy_processing immediately, and the public map refreshes every 2 seconds.",
     processed_by: "NANDA Academy",
     academy_operations: {
       total_uploaded_projects: projects.length,
@@ -157,11 +156,12 @@ async function liveTownSnapshot() {
       newly_started_agents_this_wave: newlyStartedAgents,
       training_wave: trainingWave,
       official_agents_enlisted: officialAgentProjects.length,
+      uploaded_models_enlisted: uploadedModelsEnlisted,
       upload_enlistment_sla_seconds: 2,
-      goal: "Create and train Academy agents for every uploaded project and every official Nanda Town agent seen so far.",
+      goal: "Create and train Academy agents for every uploaded project, random agent, uploaded model, and official Nanda Town agent seen so far.",
       status:
         projects.length === projectsWithAcademyAgents
-          ? "All uploaded projects and official agents in this feed have Academy-created agents."
+          ? "All uploaded projects, agent/model uploads, and official agents in this feed have Academy-created agents."
           : "Academy is creating agents for newly discovered projects.",
     },
     project_count: projects.length,

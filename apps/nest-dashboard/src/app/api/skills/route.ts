@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { processUploadedProject } from "@/lib/academy-service";
+import { academySourceForUpload, processUploadedProject } from "@/lib/academy-service";
 import { createSkill, listSkills, type SkillSourceType } from "@/lib/skills";
 
 // This registry is read/written at request time, never prerendered.
@@ -81,17 +81,22 @@ export async function POST(request: NextRequest) {
       github_username: githubUsername || null,
       submitter_ip: submitterIp,
     });
+    const academy_source = academySourceForUpload(skill);
     const academy_processing = processUploadedProject({
       project_id: skill.id,
       name: skill.name,
       description: skill.description ?? "Submitted SkillMD project.",
       source_url: skill.source_url,
       uploaded_at: skill.created_at,
-      source: "skill_registry",
+      source: academy_source,
+      source_type: skill.source_type,
+      content: skill.content,
+      tags: skill.tags,
     });
     return Response.json({
       skill,
       academy_processing,
+      academy_source,
       enlisted_by_academy: true,
       enlistment_latency: "immediate",
       live_feed_refresh_ms: 2000,
