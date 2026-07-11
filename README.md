@@ -91,6 +91,10 @@ each generated agent was created by NANDA Academy. The 100% figure means
 deterministic Academy curriculum delivery/accounting accuracy, not a claim of
 perfect real-world behavior.
 
+The Vercel dashboard page `/town` presents those records as a live Academy map:
+uploaded projects, created agents, active training batches, and a public ledger
+showing which projects have been covered by NANDA Academy.
+
 ---
 
 ## Install

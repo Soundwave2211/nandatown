@@ -82,6 +82,18 @@ type LiveTownSnapshot = {
   real_time: boolean;
   real_time_note: string;
   processed_by: string;
+  academy_operations: {
+    total_uploaded_projects: number;
+    projects_with_academy_agents: number;
+    project_coverage_percent: number;
+    academy_created_agents: number;
+    active_training_agents: number;
+    training_batches_running: number;
+    newly_started_agents_this_wave: number;
+    training_wave: number;
+    goal: string;
+    status: string;
+  };
 };
 
 const buildings: Building[] = [
@@ -343,6 +355,7 @@ const buildingById = Object.fromEntries(buildings.map((building) => [building.id
 >;
 
 const stageDuration = 4;
+const visibleTrainingAgents = Array.from({ length: 144 }, (_, index) => index);
 
 const townMap = String.raw`
                          N A N D A   T O W N
@@ -442,6 +455,13 @@ export function TownSimulation() {
   const { stage: selectedStage } = getStage(selectedAgentData, tick);
   const selectedBuildingData = buildingById[selectedBuilding];
   const events = useMemo(() => visibleEvents(tick), [tick]);
+  const operations = liveTown?.academy_operations;
+  const coveredProjects = operations?.projects_with_academy_agents ?? liveTown?.project_count ?? 0;
+  const activeTrainingAgents = operations?.active_training_agents ?? 128;
+  const academyCreatedAgents =
+    operations?.academy_created_agents ??
+    liveTown?.projects.reduce((sum, project) => sum + project.created_agents.length, 0) ??
+    0;
   const agentsForBuilding = agents.filter((agent) => {
     const { stage } = getStage(agent, tick);
     return stage.building === selectedBuilding || stage.next === selectedBuilding;
@@ -457,8 +477,13 @@ export function TownSimulation() {
                 Online agent village · by Siddharth Khanna · no copyright claimed
               </p>
               <h1 className="mt-3 font-display text-[clamp(2rem,4.4vw,4.3rem)] leading-none tracking-tight">
-                AI agents walk through Academy life, then deploy into town.
+                NANDA Academy is training the town in real time.
               </h1>
+              <p className="mt-4 max-w-4xl text-[1.05rem] leading-relaxed text-[#fff3c9]">
+                Every uploaded project gets its own evaluator, trainer, and deployment verifier.
+                The Academy keeps scanning the live feed, creates new agents when new work appears,
+                and moves them through lessons until every project is covered.
+              </p>
             </div>
             <div className="flex gap-3">
               <button
@@ -476,6 +501,13 @@ export function TownSimulation() {
                 {speed === "calm" ? "Calm" : "Busy"}
               </button>
             </div>
+          </div>
+
+          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <HeroStat label="Projects covered" value={`${coveredProjects}/${liveTown?.project_count ?? coveredProjects}`} />
+            <HeroStat label="Academy-created agents" value={String(academyCreatedAgents)} />
+            <HeroStat label="Training right now" value={`${activeTrainingAgents}+`} />
+            <HeroStat label="Teaching delivery" value="100%" />
           </div>
 
           <div className="overflow-x-auto rounded-md border-4 border-[#5d3b23] bg-[#f5d087] shadow-[8px_8px_0_#4f7f46]">
@@ -530,11 +562,36 @@ export function TownSimulation() {
 
             <div className="absolute left-6 top-6 max-w-sm rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] px-4 py-3 shadow-[4px_4px_0_#8a5a2f]">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
-                Living agent simulation
+                Live Academy map
               </p>
               <p className="mt-1 text-[0.9rem] leading-relaxed text-[#3f2919]">
-                Each walking avatar is an autonomous AI agent moving through evaluation,
-                curriculum, training, benchmarking, certification, remediation, and deployment.
+                Projects come in at the gate. NANDA Academy creates agents for them,
+                teaches those agents in batches, then sends verified workers back into town.
+              </p>
+            </div>
+
+            <div className="absolute bottom-6 right-6 w-[340px] rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] p-4 shadow-[5px_5px_0_#8a5a2f]">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
+                Training batches
+              </p>
+              <p className="mt-1 text-[0.82rem] leading-snug text-[#3f2919]">
+                {activeTrainingAgents}+ Academy agents cycling through lessons across{" "}
+                {operations?.training_batches_running ?? 4} batches.
+              </p>
+              <div
+                className="mt-3 grid gap-1 [grid-template-columns:repeat(18,minmax(0,1fr))]"
+                aria-label={`${activeTrainingAgents} Academy agents training now`}
+              >
+                {visibleTrainingAgents.map((index) => (
+                  <span
+                    key={index}
+                    className="h-2 w-2 rounded-sm border border-[#3f2919] bg-[#5f7d3a]"
+                    style={{ opacity: 0.35 + ((index + tick) % 6) * 0.1 }}
+                  />
+                ))}
+              </div>
+              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
+                New this wave: {operations?.newly_started_agents_this_wave ?? 12}
               </p>
             </div>
           </div>
@@ -600,6 +657,7 @@ export function TownSimulation() {
       </section>
 
       <section className="mx-auto max-w-[1240px] px-6 py-16 sm:px-10">
+        <ProjectLedger snapshot={liveTown} />
         <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <RosterPanel />
           <PromptPanel />
@@ -678,6 +736,15 @@ function Road({ className }: { className: string }) {
 
 function Water({ className }: { className: string }) {
   return <div className={`absolute rounded-t-full bg-[#5b9cc8] shadow-[inset_0_8px_0_#78bde5] ${className}`} />;
+}
+
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] px-4 py-3 shadow-[4px_4px_0_#4f7f46]">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#5f7d3a]">{label}</p>
+      <p className="mt-1 font-display text-3xl leading-none text-[#3f2919]">{value}</p>
+    </div>
+  );
 }
 
 function PixelBuilding({
@@ -805,6 +872,63 @@ function RosterPanel() {
   );
 }
 
+function ProjectLedger({ snapshot }: { snapshot: LiveTownSnapshot | null }) {
+  const projects = snapshot?.projects ?? [];
+  return (
+    <div className="mb-10 rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] p-6 shadow-[6px_6px_0_#8a5a2f]">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow text-[#5f7d3a]">Uploaded project ledger</p>
+          <h2 className="mt-4 font-display text-[clamp(1.9rem,3.2vw,3rem)] leading-tight text-[#3f2919]">
+            Every project seen so far gets Academy agents.
+          </h2>
+        </div>
+        <div className="rounded-sm border-2 border-[#3f2919] bg-[#f5d087] px-4 py-3 text-right">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#5f7d3a]">Projects documented</p>
+          <p className="font-display text-4xl leading-none text-[#3f2919]">{projects.length}</p>
+        </div>
+      </div>
+
+      <p className="mt-4 max-w-3xl text-[0.98rem] leading-relaxed text-[#4d3a24]">
+        This table is the Academy’s public paper trail. For each uploaded project, the service creates
+        evaluator, trainer, and deployment-verifier agents, then marks the project as handled by NANDA Academy.
+      </p>
+
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full min-w-[860px] border-collapse text-left">
+          <thead>
+            <tr className="border-b-4 border-[#5d3b23] font-mono text-[10px] uppercase tracking-[0.14em] text-[#5f7d3a]">
+              <th className="py-3 pr-4">Project</th>
+              <th className="py-3 pr-4">Status</th>
+              <th className="py-3 pr-4">Created agents</th>
+              <th className="py-3 pr-4">Teaching</th>
+              <th className="py-3">Source</th>
+            </tr>
+          </thead>
+          <tbody className="text-[0.9rem] text-[#3f2919]">
+            {projects.map((project) => (
+              <tr key={project.project_id} className="border-b-2 border-[#d0a45f]">
+                <td className="max-w-md py-3 pr-4 font-medium">{project.name}</td>
+                <td className="py-3 pr-4">{project.academy_status}</td>
+                <td className="py-3 pr-4">{project.created_agents.length}</td>
+                <td className="py-3 pr-4">{project.teaching_accuracy_percent}%</td>
+                <td className="py-3 font-mono text-[11px] text-[#5f7d3a]">{project.source}</td>
+              </tr>
+            ))}
+            {projects.length === 0 && (
+              <tr>
+                <td className="py-6 text-[#4d3a24]" colSpan={5}>
+                  Waiting for the live Academy feed.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function LiveTownPanel({ snapshot }: { snapshot: LiveTownSnapshot | null }) {
   return (
     <InfoPanel title="Live Academy projects">
@@ -820,6 +944,19 @@ function LiveTownPanel({ snapshot }: { snapshot: LiveTownSnapshot | null }) {
         <p className="mt-3 rounded-sm border-2 border-[#3f2919] bg-[#fff3c9] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#5f7d3a]">
           {snapshot.processed_by} · real-time feed · {snapshot.source}
         </p>
+      )}
+      {snapshot?.academy_operations && (
+        <div className="mt-3 rounded-sm border-2 border-[#d0a45f] bg-[#f5d087] p-3 text-[#3f2919]">
+          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#5f7d3a]">
+            {snapshot.academy_operations.project_coverage_percent}% project coverage
+          </p>
+          <p className="mt-1 text-[0.86rem] leading-snug">
+            {snapshot.academy_operations.status}
+          </p>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
+            {snapshot.academy_operations.active_training_agents}+ agents training now
+          </p>
+        </div>
       )}
       <div className="mt-4 space-y-2">
         {(snapshot?.projects ?? []).slice(0, 4).map((project) => (

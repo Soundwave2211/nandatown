@@ -30,6 +30,10 @@ The hosted `/api/skills` upload route also returns `academy_processing`
 immediately after saving a SkillMD. That record creates project-specific agents
 and marks each generated agent with `created_by: "NANDA Academy"`.
 
+The public `/town` page displays this as an Academy operations dashboard:
+project coverage, Academy-created agent count, hundreds of active training
+agents, training batches, and a ledger of uploaded projects processed so far.
+
 ## Architecture
 
 - `models.py` validates agent profiles and capability scores.

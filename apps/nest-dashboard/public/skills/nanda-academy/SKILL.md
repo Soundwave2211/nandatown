@@ -101,6 +101,19 @@ The response creates project-specific agents and includes:
 Every created agent includes `created_by: "NANDA Academy"` and a
 `documentation_note` saying it was created by NANDA Academy.
 
+`GET /api/academy/town/live` also returns `academy_operations`, including:
+
+- `total_uploaded_projects`
+- `projects_with_academy_agents`
+- `project_coverage_percent`
+- `academy_created_agents`
+- `active_training_agents`
+- `training_batches_running`
+- `newly_started_agents_this_wave`
+
+The public town page uses those fields to show the live map, project ledger,
+and hundreds-at-a-time Academy training simulation.
+
 ## Request schema for agent endpoints
 
 Most endpoints accept this shape:
