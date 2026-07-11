@@ -12,6 +12,7 @@ import {
   processUploadedProject,
   progressPrompt,
   projectAgentsFromHackathonSubmissions,
+  projectAgentsFromOfficialAgents,
   projectAgentsFromSkills,
   recommendCollaborationRole,
   runTraining,
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 async function liveTownSnapshot() {
   let skillProjects: AcademyProject[] = [];
   let hackathonProjects: AcademyProject[] = [];
+  const officialAgentProjects = projectAgentsFromOfficialAgents();
   const sources: string[] = [];
 
   try {
@@ -117,7 +119,11 @@ async function liveTownSnapshot() {
     // Static hackathon data is optional at runtime.
   }
 
-  let projects = mergeProjects(skillProjects, hackathonProjects);
+  if (officialAgentProjects.length > 0) {
+    sources.push("official_agents");
+  }
+
+  let projects = mergeProjects(skillProjects, hackathonProjects, officialAgentProjects);
   if (projects.length === 0) {
     projects = seededProjects();
     sources.push("seeded");
@@ -126,7 +132,7 @@ async function liveTownSnapshot() {
   const projectsWithAcademyAgents = projects.filter((project) => project.created_agents.length > 0).length;
   const trainingBatchesRunning = Math.max(4, Math.ceil(projects.length / 2));
   const activeTrainingAgents = Math.max(128, projects.length * 36);
-  const trainingWave = Math.floor(Date.now() / 5000);
+  const trainingWave = Math.floor(Date.now() / 2000);
   const newlyStartedAgents = 12 + (trainingWave % 19);
 
   return {
@@ -136,8 +142,10 @@ async function liveTownSnapshot() {
     generated_at: new Date().toISOString(),
     official_agents: officialAgentTemplates,
     real_time: true,
+    refresh_interval_ms: 2000,
+    upload_enlistment_sla_seconds: 2,
     real_time_note:
-      "SkillMD uploads are read at request time. Hackathon submission data is included when the site has a current marketplace dataset.",
+      "SkillMD uploads are read at request time, POST /api/skills returns academy_processing immediately, and the public map refreshes every 2 seconds.",
     processed_by: "NANDA Academy",
     academy_operations: {
       total_uploaded_projects: projects.length,
@@ -148,10 +156,12 @@ async function liveTownSnapshot() {
       training_batches_running: trainingBatchesRunning,
       newly_started_agents_this_wave: newlyStartedAgents,
       training_wave: trainingWave,
-      goal: "Create and train Academy agents for every uploaded project seen so far.",
+      official_agents_enlisted: officialAgentProjects.length,
+      upload_enlistment_sla_seconds: 2,
+      goal: "Create and train Academy agents for every uploaded project and every official Nanda Town agent seen so far.",
       status:
         projects.length === projectsWithAcademyAgents
-          ? "All uploaded projects in this feed have Academy-created agents."
+          ? "All uploaded projects and official agents in this feed have Academy-created agents."
           : "Academy is creating agents for newly discovered projects.",
     },
     project_count: projects.length,

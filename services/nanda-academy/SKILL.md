@@ -140,8 +140,9 @@ Post a profile to `/recommend_collaboration_role` with `task_context`, for examp
 
 ## Workflow 6: process an uploaded project
 
-When a SkillMD or hackathon project is uploaded, call `/process_project` or
-inspect the hosted `/api/skills` response. NANDA Academy creates
+When a SkillMD, hackathon project, or official Nanda Town agent is uploaded or
+discovered, call `/process_project` or inspect the hosted `/api/skills`
+response. NANDA Academy creates
 project-specific evaluator, trainer, and deployment-verifier agents, trains and
 checks the upload deterministically, and returns documentation notes.
 
@@ -159,6 +160,11 @@ The response includes `created_agents`, `training_summary`,
 `github_marker: "processed-by-nanda-academy"`. Each created agent includes
 `created_by: "NANDA Academy"`, `made_by: "Siddharth Khanna"`, and its own
 documentation note.
+
+On the hosted dashboard, `POST /api/skills` returns `academy_processing`
+immediately, and `GET /api/academy/town/live` refreshes the live Academy feed
+every 2 seconds. The live feed also includes official Nanda Town agent templates
+as Academy-enlisted records with `source: "official_agent"`.
 
 ## Workflow 7: simulate a tournament
 

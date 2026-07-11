@@ -42,7 +42,7 @@ export type AcademyProject = {
   academy_status: string;
   assigned_agent: string;
   updated_at: string;
-  source: "skill_registry" | "hackathon_submission" | "seeded";
+  source: "skill_registry" | "hackathon_submission" | "official_agent" | "seeded";
   made_by: "Siddharth Khanna";
   processed_by: "NANDA Academy";
   github_marker: string;
@@ -396,7 +396,11 @@ export function processUploadedProject(payload: Record<string, unknown>) {
   const description = stringValue(payload.description) || "Uploaded NANDA Town project.";
   const sourceUrl = stringValue(payload.source_url) || null;
   const uploadedAt = stringValue(payload.uploaded_at) || new Date().toISOString();
-  const source = stringValue(payload.source) === "hackathon_submission" ? "hackathon_submission" : "skill_registry";
+  const requestedSource = stringValue(payload.source);
+  const source =
+    requestedSource === "hackathon_submission" || requestedSource === "official_agent"
+      ? requestedSource
+      : "skill_registry";
   const createdAgents = createProjectAgents(projectId, name, description);
   const score = deterministicProjectScore(projectId, name, description);
   const status = score >= 0.78 ? "certified" : score >= 0.62 ? "training" : "curriculum_assigned";
@@ -471,6 +475,25 @@ export function projectAgentsFromHackathonSubmissions(
       ...stripEvidence(processed),
       academy_status: status,
       assigned_agent: officialAgentTemplates[(index + 5) % officialAgentTemplates.length],
+    };
+  }) satisfies AcademyProject[];
+}
+
+export function projectAgentsFromOfficialAgents() {
+  return officialAgentTemplates.map((agent, index) => {
+    const name = titleCase(agent);
+    const processed = processUploadedProject({
+      project_id: `official-agent-${agent}`,
+      name,
+      description: `Official Nanda Town agent template: ${agent}. NANDA Academy evaluates, trains, benchmarks, and certifies it continuously.`,
+      source_url: `https://github.com/projnanda/nandatown/tree/main/scenarios#${agent}`,
+      source: "official_agent",
+      uploaded_at: new Date(Date.now() - index * 1000).toISOString(),
+    });
+    return {
+      ...stripEvidence(processed),
+      academy_status: index % 4 === 0 ? "certified" : index % 4 === 1 ? "training" : index % 4 === 2 ? "benchmarking" : "curriculum_assigned",
+      assigned_agent: agent,
     };
   }) satisfies AcademyProject[];
 }

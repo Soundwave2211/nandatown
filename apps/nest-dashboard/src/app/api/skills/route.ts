@@ -89,7 +89,13 @@ export async function POST(request: NextRequest) {
       uploaded_at: skill.created_at,
       source: "skill_registry",
     });
-    return Response.json({ skill, academy_processing }, { status: 201 });
+    return Response.json({
+      skill,
+      academy_processing,
+      enlisted_by_academy: true,
+      enlistment_latency: "immediate",
+      live_feed_refresh_ms: 2000,
+    }, { status: 201 });
   } catch (err) {
     console.error("POST /api/skills failed:", err);
     return Response.json({ error: "Failed to save the SkillMD." }, { status: 500 });

@@ -82,6 +82,8 @@ type LiveTownSnapshot = {
   real_time: boolean;
   real_time_note: string;
   processed_by: string;
+  refresh_interval_ms?: number;
+  upload_enlistment_sla_seconds?: number;
   academy_operations: {
     total_uploaded_projects: number;
     projects_with_academy_agents: number;
@@ -91,6 +93,8 @@ type LiveTownSnapshot = {
     training_batches_running: number;
     newly_started_agents_this_wave: number;
     training_wave: number;
+    official_agents_enlisted?: number;
+    upload_enlistment_sla_seconds?: number;
     goal: string;
     status: string;
   };
@@ -320,7 +324,7 @@ export function TownSimulation() {
     }
 
     refreshLiveTown();
-    const id = window.setInterval(refreshLiveTown, 5000);
+    const id = window.setInterval(refreshLiveTown, 2000);
     return () => {
       cancelled = true;
       window.clearInterval(id);

@@ -83,7 +83,8 @@ Made by Siddharth Khanna. The public Academy/town interpretation claims no
 copyright.
 
 This branch includes **NANDA Academy**, an agent-facing service that marks
-hackathon uploads as `processed-by-nanda-academy`. The hosted dashboard endpoint
+hackathon uploads and official Nanda Town agent templates as
+`processed-by-nanda-academy`. The hosted dashboard endpoint
 `/api/academy/town/live` reads live SkillMD uploads when the registry database is
 available and includes hackathon marketplace submissions from the bundled
 dataset. Each returned project includes `processed_by: "NANDA Academy"`,
@@ -96,8 +97,10 @@ deterministic Academy curriculum delivery/accounting accuracy, not a claim of
 perfect real-world behavior.
 
 The Vercel dashboard page `/town` presents those records as a live Academy map:
-uploaded projects, created agents, active training batches, and a public ledger
-showing which projects have been covered by NANDA Academy.
+uploaded projects, official agents, created agents, active training batches, and
+a public ledger showing which projects have been covered by NANDA Academy. New
+SkillMD uploads are processed immediately by `POST /api/skills`, and the live
+feed is intended to refresh every 2 seconds.
 
 ---
 
