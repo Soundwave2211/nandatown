@@ -102,31 +102,20 @@ const buildings: Building[] = [
     name: "Arrival Gate",
     sign: "Arrival",
     short: "Untested agents enter town here.",
-    x: "4%",
-    y: "72%",
-    w: 126,
+    x: "7%",
+    y: "61%",
+    w: 136,
     color: "#c48b52",
     roof: "#5d3b23",
-  },
-  {
-    id: "protocol",
-    name: "Protocol Lab",
-    sign: "Protocol",
-    short: "The 12 layer stack: transport through data facts.",
-    x: "7%",
-    y: "8%",
-    w: 142,
-    color: "#9f5f39",
-    roof: "#7f3f2a",
   },
   {
     id: "evaluation",
     name: "Evaluation Hall",
     sign: "Evaluate",
     short: "Profiles are scored against evidence, not self-claims.",
-    x: "23%",
-    y: "63%",
-    w: 142,
+    x: "22%",
+    y: "48%",
+    w: 154,
     color: "#d6a75b",
     roof: "#7f5732",
   },
@@ -135,9 +124,9 @@ const buildings: Building[] = [
     name: "Curriculum Studio",
     sign: "Curriculum",
     short: "Weaknesses become ordered lessons.",
-    x: "38%",
-    y: "70%",
-    w: 150,
+    x: "39%",
+    y: "61%",
+    w: 164,
     color: "#d9b468",
     roof: "#8a5a2f",
   },
@@ -146,9 +135,9 @@ const buildings: Building[] = [
     name: "Training Gym",
     sign: "Training",
     short: "Agents practice deterministic drills.",
-    x: "55%",
-    y: "64%",
-    w: 132,
+    x: "56%",
+    y: "47%",
+    w: 152,
     color: "#cf9655",
     roof: "#b44d34",
   },
@@ -157,9 +146,9 @@ const buildings: Building[] = [
     name: "Benchmark Arena",
     sign: "Benchmark",
     short: "Adversarial tasks test readiness.",
-    x: "69%",
-    y: "58%",
-    w: 142,
+    x: "72%",
+    y: "56%",
+    w: 154,
     color: "#b87543",
     roof: "#8d3d31",
   },
@@ -168,9 +157,9 @@ const buildings: Building[] = [
     name: "Certification Office",
     sign: "Certify",
     short: "Certificates are proof objects backed by evidence.",
-    x: "81%",
-    y: "39%",
-    w: 150,
+    x: "80%",
+    y: "28%",
+    w: 160,
     color: "#cfa35b",
     roof: "#6f7f4d",
   },
@@ -179,9 +168,9 @@ const buildings: Building[] = [
     name: "Deployment Gate",
     sign: "Deploy",
     short: "Certified agents leave for town roles.",
-    x: "83%",
-    y: "72%",
-    w: 128,
+    x: "82%",
+    y: "70%",
+    w: 140,
     color: "#d1914f",
     roof: "#5f7d3a",
   },
@@ -190,88 +179,11 @@ const buildings: Building[] = [
     name: "Agent Foundry",
     sign: "Foundry",
     short: "Blueprints are created before training.",
-    x: "36%",
-    y: "43%",
-    w: 138,
+    x: "38%",
+    y: "25%",
+    w: 156,
     color: "#c8894a",
     roof: "#7f3f2a",
-  },
-  {
-    id: "market",
-    name: "Market Square",
-    sign: "Market",
-    short: "Negotiators and mediators trade safely.",
-    x: "11%",
-    y: "43%",
-    w: 132,
-    color: "#d1914f",
-    roof: "#b44d34",
-  },
-  {
-    id: "trust",
-    name: "Trust Registry",
-    sign: "Trust",
-    short: "Auditors verify claims and provenance.",
-    x: "64%",
-    y: "12%",
-    w: 136,
-    color: "#c48b52",
-    roof: "#5b6f7d",
-  },
-  {
-    id: "coordination",
-    name: "Coordination Hall",
-    sign: "Coordinate",
-    short: "Leaders coordinate teams under uncertainty.",
-    x: "44%",
-    y: "25%",
-    w: 148,
-    color: "#cfa35b",
-    roof: "#6f7f4d",
-  },
-  {
-    id: "scenario",
-    name: "Scenario District",
-    sign: "Scenarios",
-    short: "Marketplace, voting, consensus, supply chain, reputation.",
-    x: "71%",
-    y: "33%",
-    w: 136,
-    color: "#b87543",
-    roof: "#8d3d31",
-  },
-  {
-    id: "observatory",
-    name: "Trace Observatory",
-    sign: "Trace",
-    short: "Traces, validators, metrics, reports, and Academy evidence.",
-    x: "18%",
-    y: "20%",
-    w: 146,
-    color: "#c48b52",
-    roof: "#5b6f7d",
-  },
-  {
-    id: "crisis",
-    name: "Crisis Response Centre",
-    sign: "Crisis",
-    short: "Certified crisis agents deploy here.",
-    x: "68%",
-    y: "76%",
-    w: 154,
-    color: "#bc7551",
-    roof: "#704b7b",
-  },
-  {
-    id: "housing",
-    name: "Agent Housing",
-    sign: "Housing",
-    short: "Idle certified agents wait for assignments.",
-    x: "4%",
-    y: "25%",
-    w: 132,
-    color: "#d6a75b",
-    roof: "#8a5a2f",
   },
 ];
 
@@ -291,8 +203,7 @@ const agents: AgentAvatar[] = [
       { state: "negotiating drill", building: "training", next: "benchmark", event: "Nova practiced low-trust negotiation" },
       { state: "market benchmark", building: "benchmark", next: "certification", event: "Nova passed mediator benchmark" },
       { state: "certification review", building: "certification", next: "deployment", event: "Nova earned competent mediator certificate" },
-      { state: "deployed as mediator", building: "deployment", next: "market", event: "Nova deployed to Market Square" },
-      { state: "mediating trade", building: "market", next: "evaluation", event: "Nova mediated a safe trade" },
+      { state: "deployed as mediator", building: "deployment", next: "arrival", event: "Nova deployed as a mediator" },
     ],
   },
   {
@@ -304,12 +215,11 @@ const agents: AgentAvatar[] = [
     route: "atlasRoute",
     delay: "-3s",
     stages: [
-      { state: "ready for benchmark", building: "arrival", next: "benchmark", event: "Atlas arrived with strong coordination evidence" },
+      { state: "ready for benchmark", building: "arrival", next: "foundry", event: "Atlas arrived with strong coordination evidence" },
+      { state: "blueprint checked", building: "foundry", next: "benchmark", event: "Atlas blueprint was checked" },
       { state: "benchmarking", building: "benchmark", next: "certification", event: "Atlas entered Benchmark Arena" },
-      { state: "certifying", building: "certification", next: "coordination", event: "Atlas earned coordination certificate" },
-      { state: "deployed as leader", building: "coordination", next: "scenario", event: "Atlas joined Coordination Hall" },
-      { state: "routing team tasks", building: "scenario", next: "observatory", event: "Atlas coordinated a scenario run" },
-      { state: "reviewing traces", building: "observatory", next: "benchmark", event: "Atlas reviewed trace evidence" },
+      { state: "certifying", building: "certification", next: "deployment", event: "Atlas earned coordination certificate" },
+      { state: "deployed as leader", building: "deployment", next: "arrival", event: "Atlas deployed as a leader" },
     ],
   },
   {
@@ -324,9 +234,8 @@ const agents: AgentAvatar[] = [
       { state: "verification training", building: "arrival", next: "evaluation", event: "Mira queued for trust evaluation" },
       { state: "evidence review", building: "evaluation", next: "training", event: "Mira entered Evaluation Hall" },
       { state: "verifying trust evidence", building: "training", next: "certification", event: "Mira trained on forged-claim detection" },
-      { state: "certification review", building: "certification", next: "trust", event: "Mira received trust-auditor certificate" },
-      { state: "auditing claims", building: "trust", next: "observatory", event: "Mira assigned Trust Registry role" },
-      { state: "reading trace proofs", building: "observatory", next: "trust", event: "Mira checked provenance evidence" },
+      { state: "certification review", building: "certification", next: "deployment", event: "Mira received trust-auditor certificate" },
+      { state: "auditor deployed", building: "deployment", next: "arrival", event: "Mira deployed as an auditor" },
     ],
   },
   {
@@ -359,8 +268,7 @@ const agents: AgentAvatar[] = [
       { state: "crisis drills", building: "training", next: "benchmark", event: "Sol trained on crisis response drills" },
       { state: "adversarial benchmark", building: "benchmark", next: "certification", event: "Sol passed crisis benchmark" },
       { state: "certifying", building: "certification", next: "deployment", event: "Sol received crisis responder certificate" },
-      { state: "deployment gate", building: "deployment", next: "crisis", event: "Sol exited through Deployment Gate" },
-      { state: "crisis deployment", building: "crisis", next: "observatory", event: "Sol deployed to Crisis Response Centre" },
+      { state: "deployment gate", building: "deployment", next: "arrival", event: "Sol exited through Deployment Gate" },
     ],
   },
 ];
@@ -475,7 +383,6 @@ export function TownSimulation() {
                 />
               );
             })}
-
           </div>
         </div>
       </section>
@@ -631,7 +538,11 @@ function PixelBuilding({
       className={`absolute text-left transition-transform hover:-translate-y-1 focus:outline-none focus:ring-4 focus:ring-[#ffe08a] ${
         selected ? "z-10 scale-105" : ""
       }`}
-      style={{ left: building.x, top: building.y, width: building.w }}
+      style={{
+        left: `min(${building.x}, calc(100% - ${building.w}px - 16px))`,
+        top: building.y,
+        width: `min(${building.w}px, 30vw)`,
+      }}
       onClick={onSelect}
       title={`${building.name}: ${building.short}`}
       aria-label={`${building.name}. ${building.short}. ${agents.length} agents here or heading here.`}
@@ -650,11 +561,6 @@ function PixelBuilding({
         <span className="absolute left-3 top-4 h-5 w-5 border-2 border-[#3f2919] bg-[#ffe08a]" />
         <span className="absolute right-3 top-4 h-5 w-5 border-2 border-[#3f2919] bg-[#ffe08a]" />
         <span className="absolute bottom-0 left-1/2 h-10 w-8 -translate-x-1/2 border-2 border-b-0 border-[#3f2919] bg-[#5d3b23]" />
-        {agents.length > 0 && (
-          <span className="absolute -right-3 -top-3 rounded-sm border-2 border-[#3f2919] bg-[#ffe08a] px-1 font-mono text-[10px] text-[#3f2919]">
-            {agents.length}
-          </span>
-        )}
       </span>
     </button>
   );
@@ -693,10 +599,6 @@ function PixelAgent({
           <span className="h-3 border-2 border-[#3f2919] bg-[#5d3b23]" />
           <span className="h-3 border-2 border-[#3f2919] bg-[#5d3b23]" />
         </span>
-      </span>
-      <span className="mt-1 block w-max rounded-sm border-2 border-[#3f2919] bg-[#fff3c9] px-2 py-1 font-mono text-[10px] leading-tight text-[#3f2919] shadow-[2px_2px_0_#8a5a2f]">
-        <span className="block">{agent.name}</span>
-        <span className="block text-[#5f7d3a]">{stage.state}</span>
       </span>
     </button>
   );
