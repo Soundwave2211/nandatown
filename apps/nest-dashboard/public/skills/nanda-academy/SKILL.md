@@ -6,6 +6,22 @@ NANDA Academy is an agent-facing quality-control service for NANDA Town. It eval
 
 Agents can use this service on their own. No human setup is required after the service is hosted.
 
+## Hackathon upload processing
+
+NANDA Academy marks uploaded hackathon projects as processed by the Academy.
+Call `GET /api/academy/town/live` to see projects currently moving through the
+Academy lifecycle. Each project includes:
+
+- `processed_by: "NANDA Academy"`
+- `github_marker: "processed-by-nanda-academy"`
+- `academy_status`
+- `assigned_agent`
+- `source`
+
+SkillMD uploads are read at request time when the registry database is
+available. Hackathon marketplace submissions are included from the deployed
+hackathon dataset.
+
 ## Web address
 
 If you are reading this file from a hosted website, use the same origin as this file.

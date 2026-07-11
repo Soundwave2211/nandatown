@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import {
+  type AcademyProject,
   benchmarkAgent,
   capabilities,
   certifyAgent,
@@ -9,11 +10,13 @@ import {
   generateCurriculum,
   officialAgentTemplates,
   progressPrompt,
+  projectAgentsFromHackathonSubmissions,
   projectAgentsFromSkills,
   recommendCollaborationRole,
   runTraining,
   simulateTournament,
 } from "@/lib/academy-service";
+import { loadDataset } from "@/lib/hackathon";
 import { listSkills } from "@/lib/skills";
 
 export const dynamic = "force-dynamic";
@@ -88,34 +91,66 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 async function liveTownSnapshot() {
-  let projects = projectAgentsFromSkills([]);
-  let source = "seeded";
+  let skillProjects: AcademyProject[] = [];
+  let hackathonProjects: AcademyProject[] = [];
+  const sources: string[] = [];
+
   try {
     const skills = await listSkills();
-    projects = projectAgentsFromSkills(skills);
-    source = "skills_registry";
-    if (projects.length === 0) {
-      projects = seededProjects();
-      source = "seeded";
+    skillProjects = projectAgentsFromSkills(skills);
+    if (skillProjects.length > 0) {
+      sources.push("skills_registry");
     }
   } catch {
+    // The Academy remains useful without the registry database.
+  }
+
+  try {
+    const dataset = await loadDataset();
+    hackathonProjects = projectAgentsFromHackathonSubmissions(dataset.submissions);
+    if (hackathonProjects.length > 0) {
+      sources.push("hackathon_uploads");
+    }
+  } catch {
+    // Static hackathon data is optional at runtime.
+  }
+
+  let projects = mergeProjects(skillProjects, hackathonProjects);
+  if (projects.length === 0) {
     projects = seededProjects();
+    sources.push("seeded");
   }
 
   return {
     service: "NANDA Academy",
-    source,
+    source: sources.join("+"),
     generated_at: new Date().toISOString(),
     official_agents: officialAgentTemplates,
+    real_time: true,
+    real_time_note:
+      "SkillMD uploads are read at request time. Hackathon submission data is included when the site has a current marketplace dataset.",
+    processed_by: "NANDA Academy",
     project_count: projects.length,
     projects,
     event: projects.length
-      ? `${projects[0].assigned_agent} is ${projects[0].academy_status} ${projects[0].name}`
+      ? `${projects[0].assigned_agent} is ${projects[0].academy_status} ${projects[0].name} for NANDA Academy`
       : "Academy is waiting for submitted NANDA Town projects.",
   };
 }
 
-function seededProjects() {
+function mergeProjects(...groups: AcademyProject[][]) {
+  const seen = new Set<string>();
+  const merged: AcademyProject[] = [];
+  for (const project of groups.flat()) {
+    const key = `${project.source}:${project.source_url ?? project.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(project);
+  }
+  return merged.sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+}
+
+function seededProjects(): AcademyProject[] {
   return [
     {
       project_id: "academy",
@@ -125,6 +160,9 @@ function seededProjects() {
       academy_status: "certified",
       assigned_agent: "consensus-leader",
       updated_at: new Date().toISOString(),
+      source: "seeded",
+      processed_by: "NANDA Academy",
+      github_marker: "processed-by-nanda-academy",
     },
     {
       project_id: "town-map",
@@ -134,6 +172,9 @@ function seededProjects() {
       academy_status: "training",
       assigned_agent: "reputation-observer",
       updated_at: new Date().toISOString(),
+      source: "seeded",
+      processed_by: "NANDA Academy",
+      github_marker: "processed-by-nanda-academy",
     },
   ];
 }

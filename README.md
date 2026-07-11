@@ -3,6 +3,7 @@
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/projnanda/nandatown/actions/workflows/ci.yml/badge.svg)](https://github.com/projnanda/nandatown/actions/workflows/ci.yml)
 [![Status: Alpha](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
+[![Processed by NANDA Academy](https://img.shields.io/badge/processed_by-NANDA_Academy-2f855a.svg)](services/nanda-academy/README.md)
 
 
 
@@ -75,6 +76,16 @@ fidelity), each on a 1-5 scale.
 If this is your first time here, read the charter first. Scoreboard
 details and judge-panel internals are in the
 [Scoreboard](#scoreboard) section below.
+
+### NANDA Academy
+
+This branch includes **NANDA Academy**, an agent-facing service that marks
+hackathon uploads as `processed-by-nanda-academy`. The hosted dashboard endpoint
+`/api/academy/town/live` reads live SkillMD uploads when the registry database is
+available and includes hackathon marketplace submissions from the bundled
+dataset. Each returned project includes `processed_by: "NANDA Academy"`,
+`github_marker: "processed-by-nanda-academy"`, an Academy lifecycle status, and
+the official NANDA Town agent assigned to work on it.
 
 ---
 

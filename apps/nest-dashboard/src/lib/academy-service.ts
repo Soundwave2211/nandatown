@@ -34,6 +34,19 @@ export type AgentProfile = {
   metadata?: Record<string, unknown>;
 };
 
+export type AcademyProject = {
+  project_id: string;
+  name: string;
+  description: string;
+  source_url: string | null;
+  academy_status: string;
+  assigned_agent: string;
+  updated_at: string;
+  source: "skill_registry" | "hackathon_submission" | "seeded";
+  processed_by: "NANDA Academy";
+  github_marker: string;
+};
+
 export const capabilityNames: CapabilityName[] = [
   "coordination",
   "negotiation",
@@ -359,7 +372,39 @@ export function projectAgentsFromSkills(
     academy_status: index % 3 === 0 ? "benchmarking" : index % 3 === 1 ? "training" : "certified",
     assigned_agent: officialAgentTemplates[index % officialAgentTemplates.length],
     updated_at: skill.created_at,
-  }));
+    source: "skill_registry",
+    processed_by: "NANDA Academy",
+    github_marker: "processed-by-nanda-academy",
+  })) satisfies AcademyProject[];
+}
+
+export function projectAgentsFromHackathonSubmissions(
+  submissions: {
+    id: string;
+    title: string;
+    short_description: string;
+    pr_url: string;
+    created_at: string;
+    score: { total: number | null } | null;
+    layer: string;
+  }[],
+) {
+  return submissions.slice(0, 36).map((submission, index) => {
+    const score = submission.score?.total ?? null;
+    const status = score === null ? "evaluating" : score >= 24 ? "certified" : score >= 18 ? "training" : "curriculum_assigned";
+    return {
+      project_id: `hackathon-${submission.id}`,
+      name: submission.title,
+      description: submission.short_description || `Hackathon ${submission.layer} submission.`,
+      source_url: submission.pr_url,
+      academy_status: status,
+      assigned_agent: officialAgentTemplates[(index + 5) % officialAgentTemplates.length],
+      updated_at: submission.created_at,
+      source: "hackathon_submission",
+      processed_by: "NANDA Academy",
+      github_marker: "processed-by-nanda-academy",
+    };
+  }) satisfies AcademyProject[];
 }
 
 function profile(

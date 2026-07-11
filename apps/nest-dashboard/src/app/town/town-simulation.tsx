@@ -62,8 +62,14 @@ type LiveTownSnapshot = {
     academy_status: string;
     assigned_agent: string;
     updated_at: string;
+    source: string;
+    processed_by: string;
+    github_marker: string;
   }[];
   event: string;
+  real_time: boolean;
+  real_time_note: string;
+  processed_by: string;
 };
 
 const buildings: Building[] = [
@@ -798,6 +804,11 @@ function LiveTownPanel({ snapshot }: { snapshot: LiveTownSnapshot | null }) {
           ? snapshot.event
           : "Checking the hosted Academy endpoint for NANDA Town projects and assigned agents."}
       </p>
+      {snapshot && (
+        <p className="mt-3 rounded-sm border-2 border-[#3f2919] bg-[#fff3c9] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#5f7d3a]">
+          {snapshot.processed_by} · real-time feed · {snapshot.source}
+        </p>
+      )}
       <div className="mt-4 space-y-2">
         {(snapshot?.projects ?? []).slice(0, 4).map((project) => (
           <div key={project.project_id} className="rounded-sm border-2 border-[#d0a45f] bg-[#f5d087] p-3">
@@ -812,6 +823,12 @@ function LiveTownPanel({ snapshot }: { snapshot: LiveTownSnapshot | null }) {
             <p className="mt-2 text-[0.82rem] leading-snug text-[#4d3a24]">{project.description}</p>
             <p className="mt-2 font-mono text-[10px] text-[#5f7d3a]">
               Agent: {project.assigned_agent}
+            </p>
+            <p className="mt-1 font-mono text-[10px] text-[#5f7d3a]">
+              Done by: {project.processed_by} · {project.github_marker}
+            </p>
+            <p className="mt-1 font-mono text-[10px] text-[#8a5a2f]">
+              Source: {project.source}
             </p>
           </div>
         ))}

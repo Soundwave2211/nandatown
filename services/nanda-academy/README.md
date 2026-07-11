@@ -4,6 +4,23 @@ NANDA Academy is a Phase 2 NandaHack service for proof-driven agent quality cont
 
 The core design rule is simple: do not trust agent self-claims. Scores, certificates, and deployment roles are computed from structured profiles, deterministic scenario rules, and evidence events.
 
+## Hackathon Upload Processing
+
+NANDA Academy marks hackathon uploads and submitted SkillMD projects as processed
+by the Academy. The hosted dashboard endpoint `/api/academy/town/live` returns a
+real-time Academy view with:
+
+- `processed_by: "NANDA Academy"`
+- `github_marker: "processed-by-nanda-academy"`
+- `academy_status` such as `evaluating`, `curriculum_assigned`, `training`, `benchmarking`, or `certified`
+- `assigned_agent`, chosen from the official NANDA Town agent templates
+- `source`, either `skill_registry`, `hackathon_submission`, or `seeded`
+
+When the registry database is available, SkillMD uploads are read at request
+time. Hackathon marketplace submissions are included from the deployed
+`hackathon-data.json` dataset so the town view can show uploaded projects moving
+through NANDA Academy without human intervention.
+
 ## Architecture
 
 - `models.py` validates agent profiles and capability scores.
