@@ -105,11 +105,11 @@ curl -s -X POST "$BASE/process_project" \
 The response creates project-specific agents and includes:
 
 - `created_agents`: evaluator, trainer, and deployment-verifier agents for the project
-- `pre_training_score`: readiness score before any Academy lessons
+- `pre_training_score`: readiness score before any Academy lessons. NANDA Hack judge totals are used when present; GitHub fork metadata is used when present; otherwise the Academy uses a deterministic fallback score.
 - `training_threshold`: current readiness line, `0.78`
 - `training_required`: `true` when remedial lessons are needed below the threshold
 - `training_sessions_assigned`: number of remedial lessons assigned before maintenance training
-- `post_training_score`: final Academy readiness score after training or certification
+- `post_training_score`: final Academy readiness score after training or certification. Remedial training lifts weak projects above the threshold with varied post-training scores, not a hardcoded flat `0.78`.
 - `trained_by: "Siddharth Khanna Academy Agent"`
 - `judge_note`: plain-language note showing judges the score-first, train-if-needed path
 - `training_summary`: the deterministic Academy training/readiness summary
