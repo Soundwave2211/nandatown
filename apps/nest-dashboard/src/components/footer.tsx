@@ -2,9 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { hackathonEvent } from "@/lib/hackathon-event";
 
 export function Footer() {
+  const pathname = usePathname();
+  if (pathname === "/" || pathname.startsWith("/town")) return null;
+
   return (
     <footer className="border-t border-cream-400/70 bg-cream-100">
       <div className="mx-auto max-w-[1240px] px-6 sm:px-10 pt-20 pb-12">

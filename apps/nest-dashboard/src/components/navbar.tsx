@@ -37,6 +37,8 @@ export function Navbar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  if (pathname === "/" || pathname.startsWith("/town")) return null;
+
   return (
     <nav className="sticky top-0 z-50 border-b border-cream-400/60 bg-cream-100/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-6 sm:px-10">

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { hackathonEvent } from "@/lib/hackathon-event";
 
 /**
@@ -6,6 +9,9 @@ import { hackathonEvent } from "@/lib/hackathon-event";
  * One line on desktop; wraps gracefully on mobile.
  */
 export function HackathonBanner() {
+  const pathname = usePathname();
+  if (pathname === "/" || pathname.startsWith("/town")) return null;
+
   return (
     <div className="bg-ink-900 text-cream-100">
       <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-center gap-x-5 gap-y-1 px-6 sm:px-10 py-2.5 text-center text-[0.85rem] leading-snug">
