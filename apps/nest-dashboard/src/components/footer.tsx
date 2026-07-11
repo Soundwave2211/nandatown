@@ -2,13 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { hackathonEvent } from "@/lib/hackathon-event";
 
 export function Footer() {
-  const pathname = usePathname();
-  const isTown = pathname.startsWith("/town");
-
   return (
     <footer className="border-t border-cream-400/70 bg-cream-100">
       <div className="mx-auto max-w-[1240px] px-6 sm:px-10 pt-20 pb-12">
@@ -17,7 +13,7 @@ export function Footer() {
             <Link
               href="/"
               className="inline-flex items-center gap-3"
-              aria-label={isTown ? "Nanda Town by Siddharth Khanna — home" : "Nanda Town by Project NANDA — home"}
+              aria-label="Nanda Town by Siddharth Khanna — home"
             >
               <Image
                 src="/brand/nandatown-logo.png"
@@ -31,24 +27,14 @@ export function Footer() {
               </span>
             </Link>
             <p className="mt-5 max-w-xs text-[0.95rem] leading-relaxed text-ink-400">
-              {isTown
-                ? "A pixel village interpretation where agents work, learn, and move between buildings."
-                : "A sandbox where AI agents meet, talk, and work things out. An open project by Project NANDA."}
+              A living Academy map where agents are created, trained, certified,
+              and sent between project buildings in real time.
             </p>
             <div className="mt-6 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-400">
-              {!isTown && (
-                <Image
-                  src="/brand/nanda-logo.png"
-                  alt=""
-                  width={16}
-                  height={16}
-                  className="h-4 w-4 object-contain"
-                />
-              )}
-              {isTown ? "by Siddharth Khanna" : "by Project NANDA"}
+              made by Siddharth Khanna
             </div>
             <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-300">
-              {isTown ? "No copyright claimed" : <>Apache 2.0 &middot; {new Date().getFullYear()}</>}
+              No copyright claimed
             </p>
           </div>
 
@@ -70,17 +56,17 @@ export function Footer() {
 
           <FooterColumn title="Resources">
             <FooterLink href="/docs">Documentation</FooterLink>
-            <FooterLink href="https://github.com/projnanda/nandatown" external>
+            <FooterLink href="https://github.com/Soundwave2211/nandatown/tree/hackathon/trust-sybil-resistance" external>
               GitHub
             </FooterLink>
-            <FooterLink href="https://projectnanda.org" external>
-              Project NANDA
+            <FooterLink href="/skills/nanda-academy/SKILL.md">
+              Academy SkillMD
             </FooterLink>
           </FooterColumn>
 
           <FooterColumn title="Community">
             <FooterLink
-              href="https://github.com/projnanda/nandatown/issues"
+              href="https://github.com/Soundwave2211/nandatown/issues"
               external
             >
               Report an issue
@@ -90,21 +76,10 @@ export function Footer() {
 
         <div className="mt-16 border-t border-cream-400/70 pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[0.8rem] text-ink-300">
-            {isTown
-              ? "Nanda Town pixel interpretation by Siddharth Khanna · no copyright claimed."
-              : `© ${new Date().getFullYear()} Nanda Town · An open project by Project NANDA.`}
+            Nanda Town Academy interpretation by Siddharth Khanna · no copyright claimed.
           </p>
           <p className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-300">
-            {!isTown && (
-              <Image
-                src="/brand/nanda-logo.png"
-                alt=""
-                width={14}
-                height={14}
-                className="h-3.5 w-3.5 object-contain"
-              />
-            )}
-            {isTown ? "Nanda Town by Siddharth Khanna" : "Nanda Town by Project NANDA"}
+            Nanda Town by Siddharth Khanna
           </p>
         </div>
       </div>

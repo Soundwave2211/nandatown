@@ -44,7 +44,7 @@ function json(body: unknown, init?: ResponseInit) {
 export async function GET(_request: NextRequest, context: RouteContext) {
   const path = await pathFrom(context);
   if (path === "/health") {
-    return json({ status: "ok", service: "NANDA Academy", hosted: true });
+    return json({ status: "ok", service: "NANDA Academy", made_by: "Siddharth Khanna", hosted: true });
   }
   if (path === "/capabilities") {
     return json(capabilities());
@@ -131,6 +131,7 @@ async function liveTownSnapshot() {
 
   return {
     service: "NANDA Academy",
+    made_by: "Siddharth Khanna",
     source: sources.join("+"),
     generated_at: new Date().toISOString(),
     official_agents: officialAgentTemplates,
@@ -185,21 +186,23 @@ function seededProjects(): AcademyProject[] {
       updated_at: new Date().toISOString(),
       source: "seeded",
       processed_by: "NANDA Academy",
+      made_by: "Siddharth Khanna",
       github_marker: "processed-by-nanda-academy",
       created_agents: [
         {
           agent_id: "academy-seed-evaluator",
           name: "Academy Seed Evaluator",
           role: "academy-evaluator",
+          made_by: "Siddharth Khanna",
           created_by: "NANDA Academy",
-          documentation_note: "Created by NANDA Academy for the seeded Academy project.",
+          documentation_note: "Created by NANDA Academy for the seeded Academy project, made by Siddharth Khanna.",
         },
       ],
       teaching_accuracy: 1.0,
       teaching_accuracy_percent: 100,
       accuracy_scope: "100% deterministic Academy curriculum delivery and seeded-project accounting; not a real-world perfection guarantee.",
       training_summary: "NANDA Academy seeded this project with an evaluator agent and certified readiness state.",
-      documentation_note: "Document this seeded agent as created by NANDA Academy.",
+      documentation_note: "Document this seeded agent as created by NANDA Academy and made by Siddharth Khanna.",
     },
     {
       project_id: "town-map",
@@ -211,21 +214,23 @@ function seededProjects(): AcademyProject[] {
       updated_at: new Date().toISOString(),
       source: "seeded",
       processed_by: "NANDA Academy",
+      made_by: "Siddharth Khanna",
       github_marker: "processed-by-nanda-academy",
       created_agents: [
         {
           agent_id: "town-map-seed-trainer",
           name: "Town Map Seed Trainer",
           role: "town-map-trainer",
+          made_by: "Siddharth Khanna",
           created_by: "NANDA Academy",
-          documentation_note: "Created by NANDA Academy for the seeded town map project.",
+          documentation_note: "Created by NANDA Academy for the seeded town map project, made by Siddharth Khanna.",
         },
       ],
       teaching_accuracy: 1.0,
       teaching_accuracy_percent: 100,
       accuracy_scope: "100% deterministic Academy curriculum delivery and seeded-project accounting; not a real-world perfection guarantee.",
       training_summary: "NANDA Academy seeded this project with a trainer agent and training state.",
-      documentation_note: "Document this seeded agent as created by NANDA Academy.",
+      documentation_note: "Document this seeded agent as created by NANDA Academy and made by Siddharth Khanna.",
     },
   ];
 }

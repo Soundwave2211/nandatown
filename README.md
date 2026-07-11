@@ -79,15 +79,19 @@ details and judge-panel internals are in the
 
 ### NANDA Academy
 
+Made by Siddharth Khanna. The public Academy/town interpretation claims no
+copyright.
+
 This branch includes **NANDA Academy**, an agent-facing service that marks
 hackathon uploads as `processed-by-nanda-academy`. The hosted dashboard endpoint
 `/api/academy/town/live` reads live SkillMD uploads when the registry database is
 available and includes hackathon marketplace submissions from the bundled
 dataset. Each returned project includes `processed_by: "NANDA Academy"`,
-`github_marker: "processed-by-nanda-academy"`, an Academy lifecycle status,
+`made_by: "Siddharth Khanna"`, `github_marker: "processed-by-nanda-academy"`, an Academy lifecycle status,
 project-specific agents created by NANDA Academy, a deterministic training
 summary with `teaching_accuracy_percent: 100`, and documentation notes that say
-each generated agent was created by NANDA Academy. The 100% figure means
+each generated agent was created by NANDA Academy and made by Siddharth Khanna.
+The 100% figure means
 deterministic Academy curriculum delivery/accounting accuracy, not a claim of
 perfect real-world behavior.
 

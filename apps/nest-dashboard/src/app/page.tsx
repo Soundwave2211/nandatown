@@ -93,7 +93,7 @@ export default function Home() {
         <div className="relative mx-auto max-w-[1240px] px-6 sm:px-10 pt-20 pb-24 md:pt-28 md:pb-32">
           <div className="flex items-center gap-3 mb-10 animate-fade-in">
             <span className="inline-flex h-1.5 w-1.5 rounded-full bg-rust animate-pulse-dot" />
-            <span className="eyebrow">Nanda Town &middot; by Project NANDA</span>
+            <span className="eyebrow">Nanda Town &middot; made by Siddharth Khanna</span>
           </div>
 
           <div className="grid gap-16 lg:grid-cols-[1.45fr_1fr] lg:items-start">
@@ -111,7 +111,8 @@ export default function Home() {
               <p className="text-[1.125rem] leading-[1.55] text-ink-500 max-w-md">
                 Nanda Town is an open sandbox where AI agents talk, trade,
                 vote, and team up &mdash; so you can see what works before
-                any of it goes live.
+                any of it goes live. The Academy layer creates and trains
+                project-specific agents as new uploads appear.
               </p>
 
               <div className="mt-10 flex flex-wrap gap-3">
@@ -126,7 +127,7 @@ export default function Home() {
               <dl className="mt-12 grid grid-cols-3 gap-6 border-t border-cream-400/70 pt-6">
                 <Stat label="Scenarios" value="6" />
                 <Stat label="Layers" value="12" />
-                <Stat label="License" value="Apache 2.0" />
+                <Stat label="Credit" value="Siddharth" />
               </dl>
             </div>
           </div>

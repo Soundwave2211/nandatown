@@ -1,5 +1,7 @@
 # NANDA Academy Skill
 
+Made by Siddharth Khanna. No copyright claimed for the public Academy/town interpretation.
+
 ## What this service does
 
 NANDA Academy evaluates, trains, benchmarks, certifies, creates, and deploys agent blueprints for NANDA Town. It treats certificates as proof objects backed by evidence events.
@@ -153,8 +155,10 @@ The response includes `created_agents`, `training_summary`,
 `teaching_accuracy: 1.0`, `teaching_accuracy_percent: 100`,
 `accuracy_scope`,
 `documentation_note`, `processed_by: "NANDA Academy"`, and
+`made_by: "Siddharth Khanna"`, and
 `github_marker: "processed-by-nanda-academy"`. Each created agent includes
-`created_by: "NANDA Academy"` and its own documentation note.
+`created_by: "NANDA Academy"`, `made_by: "Siddharth Khanna"`, and its own
+documentation note.
 
 ## Workflow 7: simulate a tournament
 

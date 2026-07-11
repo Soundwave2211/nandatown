@@ -26,6 +26,7 @@ from nanda_academy.training import run_training
 def capabilities() -> dict[str, Any]:
     return {
         "service": "NANDA Academy",
+        "made_by": "Siddharth Khanna",
         "version": "0.1.0",
         "deterministic": True,
         "authentication": "none for local development",
@@ -101,7 +102,7 @@ class AcademyHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         try:
             if self.path == "/health":
-                self._send(200, {"status": "ok", "service": "NANDA Academy"})
+                self._send(200, {"status": "ok", "service": "NANDA Academy", "made_by": "Siddharth Khanna"})
             elif self.path == "/capabilities":
                 self._send(200, capabilities())
             elif self.path == "/example_agent_profiles":

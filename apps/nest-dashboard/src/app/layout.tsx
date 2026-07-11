@@ -24,9 +24,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Nanda Town — by Project NANDA",
+  title: "Nanda Town — by Siddharth Khanna",
   description:
-    "A sandbox for testing how AI agents work together. By Project NANDA.",
+    "A sandbox and live Academy map for testing how AI agents work together. Made by Siddharth Khanna.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

@@ -15,12 +15,11 @@ const links = [
   { href: "/skills", label: "Skills" },
 ];
 
-const GITHUB_URL = "https://github.com/projnanda/nandatown";
+const GITHUB_URL = "https://github.com/Soundwave2211/nandatown/tree/hackathon/trust-sybil-resistance";
 
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const isTown = pathname.startsWith("/town");
 
   // Close the mobile menu whenever the route changes.
   useEffect(() => {
@@ -45,7 +44,7 @@ export function Navbar() {
         <Link
           href="/"
           className="flex items-center gap-3 group"
-          aria-label={isTown ? "Nanda Town by Siddharth Khanna — home" : "Nanda Town by Project NANDA — home"}
+          aria-label="Nanda Town by Siddharth Khanna — home"
         >
           <Image
             src="/brand/nandatown-logo.png"
@@ -59,16 +58,7 @@ export function Navbar() {
             Nanda Town
           </span>
           <span className="hidden sm:inline-flex items-center gap-2 pl-3 ml-1 border-l border-cream-400 text-[10px] font-mono uppercase tracking-[0.2em] text-ink-300 leading-none">
-            {isTown ? "by Siddharth Khanna" : "by Project NANDA"}
-            {!isTown && (
-              <Image
-                src="/brand/nanda-logo.png"
-                alt="Project NANDA"
-                width={18}
-                height={18}
-                className="h-[18px] w-[18px] object-contain"
-              />
-            )}
+            by Siddharth Khanna
           </span>
         </Link>
 

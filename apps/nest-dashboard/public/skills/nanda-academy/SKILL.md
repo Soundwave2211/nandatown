@@ -1,5 +1,7 @@
 # NANDA Academy
 
+Made by Siddharth Khanna. No copyright claimed for the public Academy/town interpretation.
+
 ## What this service does
 
 NANDA Academy is an agent-facing quality-control service for NANDA Town. It evaluates an AI agent, diagnoses weaknesses, creates a curriculum, simulates training, benchmarks readiness, issues or denies a certificate, creates agent blueprints, recommends collaboration roles, and exposes a live view of NANDA Town projects.
@@ -13,6 +15,7 @@ Call `GET /api/academy/town/live` to see projects currently moving through the
 Academy lifecycle. Each project includes:
 
 - `processed_by: "NANDA Academy"`
+- `made_by: "Siddharth Khanna"`
 - `github_marker: "processed-by-nanda-academy"`
 - `academy_status`
 - `assigned_agent`
@@ -96,10 +99,12 @@ The response creates project-specific agents and includes:
 - `accuracy_scope`: explains this means 100% deterministic Academy curriculum delivery/accounting, not a real-world perfection guarantee
 - `documentation_note`: text that should be copied into GitHub, README, or SkillMD docs
 - `processed_by: "NANDA Academy"`
+- `made_by: "Siddharth Khanna"`
 - `github_marker: "processed-by-nanda-academy"`
 
 Every created agent includes `created_by: "NANDA Academy"` and a
-`documentation_note` saying it was created by NANDA Academy.
+`made_by: "Siddharth Khanna"` credit, plus a `documentation_note` saying it was
+created by NANDA Academy and made by Siddharth Khanna.
 
 `GET /api/academy/town/live` also returns `academy_operations`, including:
 

@@ -32,6 +32,7 @@ def process_project(
         "assigned_agent": created_agents[0]["role"],
         "updated_at": uploaded_at,
         "source": source,
+        "made_by": "Siddharth Khanna",
         "processed_by": "NANDA Academy",
         "github_marker": "processed-by-nanda-academy",
         "created_agents": created_agents,
@@ -43,7 +44,7 @@ def process_project(
             f"assigned a curriculum, and ran deterministic readiness checks for {name} with 100% teaching delivery accuracy."
         ),
         "documentation_note": (
-            "Document these agents as created by NANDA Academy. Include the marker "
+            "Document these agents as created by NANDA Academy and made by Siddharth Khanna. Include the marker "
             "processed-by-nanda-academy next to each generated agent in GitHub, README, "
             "or SkillMD documentation."
         ),
@@ -71,9 +72,10 @@ def _created_agents(project_id: str, name: str, description: str) -> list[dict[s
             "agent_id": stable_id("academy_created_agent", {"project_id": project_id, "role": role}),
             "name": role.replace("-", " ").title(),
             "role": role,
+            "made_by": "Siddharth Khanna",
             "created_by": "NANDA Academy",
             "documentation_note": (
-                f"Created by NANDA Academy for project {name}. Mark this agent with "
+                f"Created by NANDA Academy for project {name}, made by Siddharth Khanna. Mark this agent with "
                 "processed-by-nanda-academy wherever it appears in GitHub or SkillMD documentation."
             ),
         }
