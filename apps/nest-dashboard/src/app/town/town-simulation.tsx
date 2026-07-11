@@ -441,7 +441,7 @@ export function TownSimulation() {
               <p className="mt-2 text-[0.9rem] leading-relaxed">
                 Every discovered project, public fork, SkillMD, and agent is enrolled in Academy
                 training. Weak ones get remedial lessons until {thresholdPercent}%; then everyone
-                retrains toward the {targetPercent}% Academy target.
+                retrains in small live cycles toward the {targetPercent}% Academy target.
               </p>
               <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
                 {scoredProjects} scored · {trainingNow} retraining · {targetReached} at {targetPercent}%
@@ -503,8 +503,8 @@ export function TownSimulation() {
               agent, random agent, and uploaded model is scored first, then actively trained by
               Siddharth Khanna&apos;s Academy agent. {remedialTraining} are below {thresholdPercent}%
               and get remedial lessons first; {maintenanceTraining} are already above the line and
-              keep retraining through benchmark, certification, and maintenance drills until they
-              reach the {targetPercent}% Academy target.
+              keep retraining through benchmark, certification, and maintenance drills in small
+              live steps toward the {targetPercent}% Academy target.
             </p>
             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
               Forks: {githubForks} · Hack site: {nandaHackSiteProjects} · SkillMD-only: {skillMdOnly} · Official: {officialAgents} · Models: {uploadedModels} · Workers: {activeTrainingAgents}+
@@ -542,7 +542,7 @@ export function TownSimulation() {
                   </span>
                   <span className="font-mono text-[0.72rem] uppercase tracking-[0.1em] text-[#8a5a2f]">
                     {entry.accuracy_status === "academy_target_reached"
-                      ? "100% target"
+                      ? "target reached"
                       : `${entry.retraining_cycles} cycles`}
                   </span>
                 </div>
@@ -555,9 +555,9 @@ export function TownSimulation() {
             model-like upload, plus every public fork of the NANDA Town repository that the live
             importer can see; creates evaluator, trainer, and verifier agents for each one; scores
             every item before training; trains every discovered item; gives remedial lessons first
-            to anything below {thresholdPercent}% readiness; then keeps retraining live until each
-            row reaches the {targetPercent}% Academy target. It records scores, cycles, lesson
-            counts, and public credit{" "}
+            to anything below {thresholdPercent}% readiness; then keeps retraining live in small
+            increments toward the {targetPercent}% Academy target. It records scores, cycles,
+            lesson counts, and public credit{" "}
             <span className="font-semibold">made by Siddharth Khanna</span>. The live map and
             leaderboard show that pipeline running in real time.
           </p>

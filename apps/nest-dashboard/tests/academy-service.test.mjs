@@ -89,7 +89,7 @@ test("public forks are enrolled as fork projects and receive scratch agents", ()
   assert.match(project.documentation_note, /processed-by-nanda-academy/);
 });
 
-test("live retraining score changes over waves and reaches the 100% Academy target", () => {
+test("live retraining score changes gradually and does not start at 100%", () => {
   const project = processUploadedProject({
     project_id: "live-retraining-project",
     name: "Live Retraining Project",
@@ -99,12 +99,14 @@ test("live retraining score changes over waves and reaches the 100% Academy targ
     score_max: 30,
   });
 
-  const early = calculateLiveTrainingState(project, 6);
-  const later = calculateLiveTrainingState(project, 40);
+  const states = Array.from({ length: 180 }, (_, wave) => calculateLiveTrainingState(project, wave));
+  const early = states[0];
+  const uniqueScores = new Set(states.slice(0, 60).map((state) => state.current_training_score));
+  const target = states.find((state) => state.accuracy_status === "academy_target_reached");
 
-  assert.ok(later.current_training_score > early.current_training_score);
-  assert.ok(later.retraining_cycles > early.retraining_cycles);
-  assert.equal(later.current_training_score, 1);
-  assert.equal(later.training_progress_percent, 100);
-  assert.equal(later.accuracy_status, "academy_target_reached");
+  assert.ok(early.current_training_score < 1);
+  assert.ok(uniqueScores.size > 5);
+  assert.ok(target, "expected the rolling live training run to eventually reach the Academy target");
+  assert.equal(target.current_training_score, 1);
+  assert.equal(target.training_progress_percent, 100);
 });

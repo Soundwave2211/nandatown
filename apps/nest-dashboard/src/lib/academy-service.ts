@@ -637,15 +637,19 @@ export function projectAgentsFromOfficialAgents() {
 }
 
 export function calculateLiveTrainingState(project: AcademyProject, trainingWave: number): LiveTrainingState {
-  const waveOffset = Number.parseInt(stableId("live-training-offset", project.project_id).slice(0, 3), 36) % 6;
-  const retrainingCycles = Math.max(0, trainingWave - waveOffset);
+  const waveOffset = Number.parseInt(stableId("live-training-offset", project.project_id).slice(0, 3), 36) % 40;
+  const retrainingCycles = (trainingWave + waveOffset) % 160;
   const perCycleGain =
-    0.006 + (Number.parseInt(stableId("live-training-gain", project.project_id).slice(0, 2), 36) % 5) / 1000;
-  const currentScore = round(Math.min(1, project.post_training_score + retrainingCycles * perCycleGain));
+    0.002 + (Number.parseInt(stableId("live-training-gain", project.project_id).slice(0, 2), 36) % 5) / 2000;
+  const cyclesToTarget = Math.ceil((1 - project.post_training_score) / perCycleGain);
+  const currentScore =
+    retrainingCycles >= cyclesToTarget
+      ? 1
+      : round(Math.min(0.995, project.post_training_score + retrainingCycles * perCycleGain));
 
   return {
     current_training_score: currentScore,
-    training_progress_percent: Math.round(currentScore * 100),
+    training_progress_percent: Math.round(currentScore * 1000) / 10,
     retraining_cycles: retrainingCycles,
     accuracy_target: 1.0,
     accuracy_status: currentScore >= 1 ? "academy_target_reached" : "retraining",
