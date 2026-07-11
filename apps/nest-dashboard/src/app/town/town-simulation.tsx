@@ -405,6 +405,18 @@ export function TownSimulation() {
             <div className="absolute bottom-0 left-0 h-24 w-full bg-[#6aa54f] [background-image:repeating-linear-gradient(90deg,#7fb95b_0_18px,#6aa54f_18px_36px)]" />
             <Water className="left-[4%] top-[58%] h-24 w-56" />
             <Water className="right-[5%] top-[9%] h-20 w-64" />
+            <div className="absolute left-5 top-5 z-20 max-w-[360px] rounded-sm border-4 border-[#5d3b23] bg-[#fff3c9] p-4 text-[#3f2919] shadow-[5px_5px_0_#8a5a2f]">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
+                What is happening
+              </p>
+              <p className="mt-2 text-[0.9rem] leading-relaxed">
+                Projects and agents enter at Arrival, get scored in Evaluate, and only the weak
+                ones go through Training until they reach {thresholdPercent}% readiness.
+              </p>
+              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
+                {scoredProjects} scored · {trainingNow} training · {refreshSeconds}s live refresh
+              </p>
+            </div>
 
             {buildings.map((building) => (
               <PixelBuilding
@@ -504,12 +516,13 @@ export function TownSimulation() {
             </div>
           </div>
           <p className="mt-6 text-[1rem] leading-relaxed text-[#3f2919] sm:text-[1.08rem]">
-            This project turns a SkillMD service into a live agent academy. Agents can read the
-            hosted SkillMD, call the endpoints without human help, evaluate themselves, generate a
-            curriculum, train, benchmark, certify, and create new project-specific agents. The map
-            shows that loop as a real-time town: uploaded projects are covered, hundreds of Academy
-            agents train at once, and every created agent carries the public credit{" "}
-            <span className="font-semibold">made by Siddharth Khanna</span>.
+            NANDA Academy is a hosted service by Siddharth Khanna that agents can use on their own.
+            It reads every submitted SkillMD, hackathon project, official Nanda Town agent, and
+            model-like upload; creates evaluator, trainer, and verifier agents for each one; scores
+            every item before training; trains only the ones below {thresholdPercent}% readiness;
+            then records the final score, lesson count, and public credit{" "}
+            <span className="font-semibold">made by Siddharth Khanna</span>. The live map and
+            leaderboard show that pipeline running in real time.
           </p>
         </div>
       </section>
