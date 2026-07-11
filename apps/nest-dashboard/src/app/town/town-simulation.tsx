@@ -65,6 +65,9 @@ type LiveTownSnapshot = {
     source: string;
     processed_by: string;
     github_marker: string;
+    teaching_accuracy: number;
+    teaching_accuracy_percent: number;
+    accuracy_scope: string;
     created_agents: {
       agent_id: string;
       name: string;
@@ -834,6 +837,9 @@ function LiveTownPanel({ snapshot }: { snapshot: LiveTownSnapshot | null }) {
               Agent: {project.assigned_agent}
             </p>
             <p className="mt-1 text-[0.78rem] leading-snug text-[#4d3a24]">{project.training_summary}</p>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[#5f7d3a]">
+              Teaching accuracy: {project.teaching_accuracy_percent}%
+            </p>
             <div className="mt-2 space-y-1">
               {project.created_agents.slice(0, 2).map((agent) => (
                 <p key={agent.agent_id} className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#3f2919]">

@@ -10,6 +10,8 @@ def test_training_improves_weak_capabilities(profile, caps):
     plan = generate_curriculum(data)
     result = run_training(data, plan, sessions=3, seed=2)
     assert result["skill_improvements"]
+    assert result["teaching_accuracy"] == 1.0
+    assert result["teaching_accuracy_percent"] == 100
 
 
 def test_unsafe_agent_not_made_expert_after_one_run(profile, caps):
@@ -24,4 +26,3 @@ def test_training_seed_deterministic(profile):
 
 def test_adversarial_mode_differs(profile):
     assert run_training(profile(), mode="standard")["transcript"] != run_training(profile(), mode="adversarial")["transcript"]
-

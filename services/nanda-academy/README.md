@@ -13,6 +13,8 @@ real-time Academy view with:
 - `processed_by: "NANDA Academy"`
 - `github_marker: "processed-by-nanda-academy"`
 - `created_agents`, the evaluator/trainer/verifier agents created for the project
+- `teaching_accuracy: 1.0` and `teaching_accuracy_percent: 100`
+- `accuracy_scope`, which defines the claim as deterministic curriculum delivery/accounting
 - `training_summary`, the deterministic Academy teaching/readiness summary
 - `documentation_note`, the note to copy wherever generated agents are documented
 - `academy_status` such as `evaluating`, `curriculum_assigned`, `training`, `benchmarking`, or `certified`

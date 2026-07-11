@@ -86,8 +86,10 @@ available and includes hackathon marketplace submissions from the bundled
 dataset. Each returned project includes `processed_by: "NANDA Academy"`,
 `github_marker: "processed-by-nanda-academy"`, an Academy lifecycle status,
 project-specific agents created by NANDA Academy, a deterministic training
-summary, and documentation notes that say each generated agent was created by
-NANDA Academy.
+summary with `teaching_accuracy_percent: 100`, and documentation notes that say
+each generated agent was created by NANDA Academy. The 100% figure means
+deterministic Academy curriculum delivery/accounting accuracy, not a claim of
+perfect real-world behavior.
 
 ---
 

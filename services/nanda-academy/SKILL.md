@@ -150,6 +150,8 @@ curl -s -X POST http://127.0.0.1:8000/process_project \
 ```
 
 The response includes `created_agents`, `training_summary`,
+`teaching_accuracy: 1.0`, `teaching_accuracy_percent: 100`,
+`accuracy_scope`,
 `documentation_note`, `processed_by: "NANDA Academy"`, and
 `github_marker: "processed-by-nanda-academy"`. Each created agent includes
 `created_by: "NANDA Academy"` and its own documentation note.

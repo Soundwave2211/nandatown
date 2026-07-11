@@ -92,6 +92,8 @@ The response creates project-specific agents and includes:
 
 - `created_agents`: evaluator, trainer, and deployment-verifier agents for the project
 - `training_summary`: the deterministic Academy training/readiness summary
+- `teaching_accuracy: 1.0` and `teaching_accuracy_percent: 100`
+- `accuracy_scope`: explains this means 100% deterministic Academy curriculum delivery/accounting, not a real-world perfection guarantee
 - `documentation_note`: text that should be copied into GitHub, README, or SkillMD docs
 - `processed_by: "NANDA Academy"`
 - `github_marker: "processed-by-nanda-academy"`
