@@ -110,6 +110,11 @@ The response creates project-specific agents and includes:
 - `training_required`: `true` when remedial lessons are needed below the threshold
 - `training_sessions_assigned`: number of remedial lessons assigned before maintenance training
 - `post_training_score`: final Academy readiness score after training or certification. Remedial training lifts weak projects above the threshold with varied post-training scores, not a hardcoded flat `0.78`.
+- `current_training_score`: live retraining score that updates as the Academy runs new cycles
+- `training_progress_percent`: live score shown on the leaderboard
+- `retraining_cycles`: number of live Academy retraining cycles completed
+- `accuracy_target: 1.0`: the Academy target shown as 100%
+- `accuracy_status`: `retraining` or `academy_target_reached`
 - `trained_by: "Siddharth Khanna Academy Agent"`
 - `judge_note`: plain-language note showing judges the score-first, train-if-needed path
 - `training_summary`: the deterministic Academy training/readiness summary
@@ -134,6 +139,8 @@ created by NANDA Academy and made by Siddharth Khanna.
 - `remedial_training_count`: below-threshold items receiving extra lessons first
 - `maintenance_training_count`: above-threshold items continuing benchmark/certification drills
 - `training_threshold`
+- `academy_accuracy_target`
+- `academy_target_reached_count`
 - `academy_created_agents`
 - `active_training_agents`
 - `training_batches_running`
@@ -149,9 +156,12 @@ created by NANDA Academy and made by Siddharth Khanna.
 It also returns `academy_leaderboard`, sorted so the weakest agents/projects
 receive help first. Every discovered item is enrolled in training; weak items
 get remedial lessons, while strong items continue through benchmark,
-certification, and maintenance drills. Each leaderboard row shows the before
-score, after score, lesson count, and that the work was trained by Siddharth
-Khanna's Academy agent.
+certification, and maintenance drills. Each leaderboard row updates every live
+refresh with current score, retraining cycles, and whether the row has reached
+the 100% Academy target. Here, 100% means deterministic Academy curriculum
+delivery/retraining completion for this service's checks, not a guarantee of
+perfect real-world intelligence. The row also records that the work was trained
+by Siddharth Khanna's Academy agent.
 
 The public town page uses those fields to show the live map and
 hundreds-at-a-time Academy training simulation. The expected enlistment window

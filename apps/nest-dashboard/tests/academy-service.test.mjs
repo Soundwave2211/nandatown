@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  calculateLiveTrainingState,
   processUploadedProject,
   projectAgentsFromGithubForks,
   projectAgentsFromHackathonSubmissions,
@@ -86,4 +87,24 @@ test("public forks are enrolled as fork projects and receive scratch agents", ()
   assert.equal(project.source_url, "https://github.com/builder/nandatown");
   assert.equal(project.created_agents.length, 3);
   assert.match(project.documentation_note, /processed-by-nanda-academy/);
+});
+
+test("live retraining score changes over waves and reaches the 100% Academy target", () => {
+  const project = processUploadedProject({
+    project_id: "live-retraining-project",
+    name: "Live Retraining Project",
+    description: "A project that keeps improving on the live leaderboard.",
+    source: "skill_registry",
+    score_total: 9,
+    score_max: 30,
+  });
+
+  const early = calculateLiveTrainingState(project, 6);
+  const later = calculateLiveTrainingState(project, 40);
+
+  assert.ok(later.current_training_score > early.current_training_score);
+  assert.ok(later.retraining_cycles > early.retraining_cycles);
+  assert.equal(later.current_training_score, 1);
+  assert.equal(later.training_progress_percent, 100);
+  assert.equal(later.accuracy_status, "academy_target_reached");
 });

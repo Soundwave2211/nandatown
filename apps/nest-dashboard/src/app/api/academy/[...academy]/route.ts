@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import {
   type AcademyProject,
   benchmarkAgent,
+  calculateLiveTrainingState,
   capabilities,
   certifyAgent,
   createAgent,
@@ -185,8 +186,14 @@ async function liveTownSnapshot() {
       training_sessions_assigned: project.training_sessions_assigned,
       trained_by: project.trained_by,
       judge_note: project.judge_note,
+      ...calculateLiveTrainingState(project, trainingWave),
     }))
-    .sort((a, b) => Number(b.training_required) - Number(a.training_required) || a.pre_training_score - b.pre_training_score);
+    .sort(
+      (a, b) =>
+        Number(a.accuracy_status === "academy_target_reached") -
+          Number(b.accuracy_status === "academy_target_reached") ||
+        a.current_training_score - b.current_training_score,
+    );
 
   return {
     service: "NANDA Academy",
@@ -209,6 +216,8 @@ async function liveTownSnapshot() {
       remedial_training_count: remedialTrainingCount,
       maintenance_training_count: maintenanceTrainingCount,
       training_threshold: 0.78,
+      academy_accuracy_target: 1.0,
+      academy_target_reached_count: academyLeaderboard.filter((entry) => entry.accuracy_status === "academy_target_reached").length,
       academy_created_agents: academyCreatedAgents,
       active_training_agents: activeTrainingAgents,
       training_batches_running: trainingBatchesRunning,
@@ -226,7 +235,7 @@ async function liveTownSnapshot() {
           ? "All uploaded projects, public forks, NANDA Hack site projects, SkillMD-only submissions, agent/model uploads, and official agents in this feed have Academy-created agents."
           : "Academy is creating agents for newly discovered projects.",
       judge_note:
-        "Every discovered project or agent is actively trained by Siddharth Khanna's Academy agent. Rows below the 78% readiness threshold get remedial lessons first; rows already above the line stay in maintenance training and certification.",
+        "Every discovered project or agent is actively retrained by Siddharth Khanna's Academy agent toward the 100% Academy target. Rows below the 78% readiness threshold get remedial lessons first; rows already above the line stay in maintenance training and certification until the target is reached.",
     },
     academy_leaderboard: academyLeaderboard,
     project_count: projects.length,

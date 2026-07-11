@@ -93,6 +93,8 @@ type LiveTownSnapshot = {
     remedial_training_count?: number;
     maintenance_training_count?: number;
     training_threshold?: number;
+    academy_accuracy_target?: number;
+    academy_target_reached_count?: number;
     academy_created_agents: number;
     active_training_agents: number;
     training_batches_running: number;
@@ -120,6 +122,11 @@ type LiveTownSnapshot = {
     training_threshold: number;
     training_required: boolean;
     training_sessions_assigned: number;
+    current_training_score: number;
+    training_progress_percent: number;
+    retraining_cycles: number;
+    accuracy_target: number;
+    accuracy_status: "retraining" | "academy_target_reached";
     trained_by: string;
     judge_note: string;
   }[];
@@ -324,6 +331,11 @@ const fallbackLeaderboard: LeaderboardEntry[] = [
     training_threshold: 0.78,
     training_required: true,
     training_sessions_assigned: 4,
+    current_training_score: 0.91,
+    training_progress_percent: 91,
+    retraining_cycles: 9,
+    accuracy_target: 1,
+    accuracy_status: "retraining",
     trained_by: "Siddharth Khanna Academy Agent",
     judge_note: "Scored first, then trained by Siddharth Khanna's Academy agent.",
   },
@@ -339,6 +351,11 @@ const fallbackLeaderboard: LeaderboardEntry[] = [
     training_threshold: 0.78,
     training_required: true,
     training_sessions_assigned: 2,
+    current_training_score: 1,
+    training_progress_percent: 100,
+    retraining_cycles: 18,
+    accuracy_target: 1,
+    accuracy_status: "academy_target_reached",
     trained_by: "Siddharth Khanna Academy Agent",
     judge_note: "Scored first, then trained by Siddharth Khanna's Academy agent.",
   },
@@ -398,6 +415,8 @@ export function TownSimulation() {
   const maintenanceTraining = operations?.maintenance_training_count ?? Math.max(0, trainingNow - remedialTraining);
   const scoredProjects = operations?.scored_projects ?? totalProjects;
   const thresholdPercent = Math.round((operations?.training_threshold ?? 0.78) * 100);
+  const targetPercent = Math.round((operations?.academy_accuracy_target ?? 1) * 100);
+  const targetReached = operations?.academy_target_reached_count ?? 0;
   const refreshSeconds = Math.round((liveTown?.refresh_interval_ms ?? 2000) / 1000);
   const leaderboard = liveTown?.academy_leaderboard?.slice(0, 6) ?? [];
 
@@ -421,11 +440,11 @@ export function TownSimulation() {
               </p>
               <p className="mt-2 text-[0.9rem] leading-relaxed">
                 Every discovered project, public fork, SkillMD, and agent is enrolled in Academy
-                training. Weak ones get remedial lessons until {thresholdPercent}%; strong ones stay
-                in maintenance drills.
+                training. Weak ones get remedial lessons until {thresholdPercent}%; then everyone
+                retrains toward the {targetPercent}% Academy target.
               </p>
               <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
-                {scoredProjects} scored · {trainingNow} training now · {refreshSeconds}s refresh
+                {scoredProjects} scored · {trainingNow} retraining · {targetReached} at {targetPercent}%
               </p>
             </div>
 
@@ -484,7 +503,8 @@ export function TownSimulation() {
               agent, random agent, and uploaded model is scored first, then actively trained by
               Siddharth Khanna&apos;s Academy agent. {remedialTraining} are below {thresholdPercent}%
               and get remedial lessons first; {maintenanceTraining} are already above the line and
-              keep training through benchmark, certification, and maintenance drills.
+              keep retraining through benchmark, certification, and maintenance drills until they
+              reach the {targetPercent}% Academy target.
             </p>
             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
               Forks: {githubForks} · Hack site: {nandaHackSiteProjects} · SkillMD-only: {skillMdOnly} · Official: {officialAgents} · Models: {uploadedModels} · Workers: {activeTrainingAgents}+
@@ -518,10 +538,12 @@ export function TownSimulation() {
                     </p>
                   </div>
                   <span className="font-mono text-[0.85rem]">
-                    {Math.round(entry.pre_training_score * 100)}% → {Math.round(entry.post_training_score * 100)}%
+                    {Math.round(entry.pre_training_score * 100)}% → {entry.training_progress_percent}%
                   </span>
                   <span className="font-mono text-[0.72rem] uppercase tracking-[0.1em] text-[#8a5a2f]">
-                    {entry.training_required ? `${entry.training_sessions_assigned} lessons` : "maintenance"}
+                    {entry.accuracy_status === "academy_target_reached"
+                      ? "100% target"
+                      : `${entry.retraining_cycles} cycles`}
                   </span>
                 </div>
               ))}
@@ -533,8 +555,9 @@ export function TownSimulation() {
             model-like upload, plus every public fork of the NANDA Town repository that the live
             importer can see; creates evaluator, trainer, and verifier agents for each one; scores
             every item before training; trains every discovered item; gives remedial lessons first
-            to anything below {thresholdPercent}% readiness; then records the final score, lesson
-            count, and public credit{" "}
+            to anything below {thresholdPercent}% readiness; then keeps retraining live until each
+            row reaches the {targetPercent}% Academy target. It records scores, cycles, lesson
+            counts, and public credit{" "}
             <span className="font-semibold">made by Siddharth Khanna</span>. The live map and
             leaderboard show that pipeline running in real time.
           </p>

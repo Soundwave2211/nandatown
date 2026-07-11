@@ -80,6 +80,14 @@ export type AcademyCreatedAgent = {
   documentation_note: string;
 };
 
+export type LiveTrainingState = {
+  current_training_score: number;
+  training_progress_percent: number;
+  retraining_cycles: number;
+  accuracy_target: 1.0;
+  accuracy_status: "retraining" | "academy_target_reached";
+};
+
 export const capabilityNames: CapabilityName[] = [
   "coordination",
   "negotiation",
@@ -626,6 +634,22 @@ export function projectAgentsFromOfficialAgents() {
       assigned_agent: agent,
     };
   }) satisfies AcademyProject[];
+}
+
+export function calculateLiveTrainingState(project: AcademyProject, trainingWave: number): LiveTrainingState {
+  const waveOffset = Number.parseInt(stableId("live-training-offset", project.project_id).slice(0, 3), 36) % 6;
+  const retrainingCycles = Math.max(0, trainingWave - waveOffset);
+  const perCycleGain =
+    0.006 + (Number.parseInt(stableId("live-training-gain", project.project_id).slice(0, 2), 36) % 5) / 1000;
+  const currentScore = round(Math.min(1, project.post_training_score + retrainingCycles * perCycleGain));
+
+  return {
+    current_training_score: currentScore,
+    training_progress_percent: Math.round(currentScore * 100),
+    retraining_cycles: retrainingCycles,
+    accuracy_target: 1.0,
+    accuracy_status: currentScore >= 1 ? "academy_target_reached" : "retraining",
+  };
 }
 
 function stripEvidence(project: AcademyProject & { evidence: ReturnType<typeof evidence>[] }): AcademyProject {
