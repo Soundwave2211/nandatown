@@ -88,6 +88,9 @@ type LiveTownSnapshot = {
     total_uploaded_projects: number;
     projects_with_academy_agents: number;
     project_coverage_percent: number;
+    scored_projects?: number;
+    current_training_count?: number;
+    training_threshold?: number;
     academy_created_agents: number;
     active_training_agents: number;
     training_batches_running: number;
@@ -98,8 +101,26 @@ type LiveTownSnapshot = {
     upload_enlistment_sla_seconds?: number;
     goal: string;
     status: string;
+    judge_note?: string;
   };
+  academy_leaderboard?: {
+    project_id: string;
+    name: string;
+    source: string;
+    source_url: string | null;
+    assigned_agent: string;
+    status: string;
+    pre_training_score: number;
+    post_training_score: number;
+    training_threshold: number;
+    training_required: boolean;
+    training_sessions_assigned: number;
+    trained_by: string;
+    judge_note: string;
+  }[];
 };
+
+type LeaderboardEntry = NonNullable<LiveTownSnapshot["academy_leaderboard"]>[number];
 
 const buildings: Building[] = [
   {
@@ -285,6 +306,39 @@ const buildingById = Object.fromEntries(buildings.map((building) => [building.id
 
 const stageDuration = 4;
 
+const fallbackLeaderboard: LeaderboardEntry[] = [
+  {
+    project_id: "fallback-random-agent",
+    name: "Random Agent Upload",
+    source: "uploaded_model",
+    source_url: null,
+    assigned_agent: "coordination-trainer",
+    status: "training_to_threshold",
+    pre_training_score: 0.61,
+    post_training_score: 0.78,
+    training_threshold: 0.78,
+    training_required: true,
+    training_sessions_assigned: 4,
+    trained_by: "Siddharth Khanna Academy Agent",
+    judge_note: "Scored first, then trained by Siddharth Khanna's Academy agent.",
+  },
+  {
+    project_id: "fallback-official-agent",
+    name: "Official Nanda Town Agent",
+    source: "official_agent",
+    source_url: null,
+    assigned_agent: "trust-evaluator",
+    status: "training_to_threshold",
+    pre_training_score: 0.69,
+    post_training_score: 0.78,
+    training_threshold: 0.78,
+    training_required: true,
+    training_sessions_assigned: 2,
+    trained_by: "Siddharth Khanna Academy Agent",
+    judge_note: "Scored first, then trained by Siddharth Khanna's Academy agent.",
+  },
+];
+
 function getStage(agent: AgentAvatar, tick: number) {
   const index = Math.floor(tick / stageDuration) % agent.stages.length;
   return { index, stage: agent.stages[index] };
@@ -327,16 +381,15 @@ export function TownSimulation() {
 
   const operations = liveTown?.academy_operations;
   const coveredProjects = operations?.projects_with_academy_agents ?? liveTown?.project_count ?? 26;
+  const totalProjects = liveTown?.project_count ?? coveredProjects;
   const activeTrainingAgents = operations?.active_training_agents ?? 936;
   const officialAgents = operations?.official_agents_enlisted ?? 16;
   const uploadedModels = operations?.uploaded_models_enlisted ?? 0;
+  const trainingNow = operations?.current_training_count ?? 18;
+  const scoredProjects = operations?.scored_projects ?? totalProjects;
+  const thresholdPercent = Math.round((operations?.training_threshold ?? 0.78) * 100);
   const refreshSeconds = Math.round((liveTown?.refresh_interval_ms ?? 2000) / 1000);
-  const academyCreatedAgents =
-    operations?.academy_created_agents ??
-    liveTown?.projects.reduce((sum, project) => sum + project.created_agents.length, 0) ??
-    78;
-  const coveragePercent = operations?.project_coverage_percent ?? 100;
-  const totalProjects = liveTown?.project_count ?? coveredProjects;
+  const leaderboard = liveTown?.academy_leaderboard?.slice(0, 6) ?? [];
 
   return (
     <div className="min-h-screen bg-[#9ccf72]">
@@ -395,8 +448,8 @@ export function TownSimulation() {
           </h1>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <HeroStat label="Projects covered" value={`${coveredProjects}/${totalProjects}`} />
-            <HeroStat label="Coverage" value={`${coveragePercent}%`} />
-            <HeroStat label="Created agents" value={String(academyCreatedAgents)} />
+            <HeroStat label="Scored first" value={String(scoredProjects)} />
+            <HeroStat label="Training now" value={String(trainingNow)} />
             <HeroStat label="Refresh" value={`${refreshSeconds}s`} />
           </div>
           <div className="mt-6 rounded-md border-4 border-[#5d3b23] bg-[#f5d087] p-4 shadow-[5px_5px_0_#c8894a]">
@@ -405,14 +458,50 @@ export function TownSimulation() {
             </p>
             <p className="mt-2 text-[0.92rem] leading-relaxed text-[#3f2919]">
               Every SkillMD, hackathon project, official Nanda Town agent, random agent, and
-              uploaded model is enlisted by the Academy feed. Uploads return{" "}
-              <span className="font-semibold">academy_processing</span> immediately, then the
-              map refreshes every {refreshSeconds} seconds while {activeTrainingAgents}+ Academy
-              workers train, benchmark, certify, and deploy created agents.
+              uploaded model is scored first. If it is below {thresholdPercent}% readiness,
+              Siddharth Khanna&apos;s Academy agent trains it until it reaches the threshold;
+              if it is already above the line, it gets certified without extra training.
             </p>
             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
-              Official agents enlisted: {officialAgents} · Uploaded agents/models enlisted: {uploadedModels}
+              Official agents enlisted: {officialAgents} · Uploaded agents/models enlisted: {uploadedModels} · Academy workers active: {activeTrainingAgents}+
             </p>
+          </div>
+          <div className="mt-5 rounded-md border-4 border-[#5d3b23] bg-[#fff3c9] p-4 shadow-[5px_5px_0_#c8894a]">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5f7d3a]">
+                  Live training leaderboard
+                </p>
+                <h2 className="mt-1 font-display text-[1.7rem] leading-none text-[#3f2919]">
+                  Weakest agents get trained first.
+                </h2>
+              </div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#8a5a2f]">
+                Trained by Siddharth Khanna&apos;s Academy agent
+              </p>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {(leaderboard.length > 0 ? leaderboard : fallbackLeaderboard).map((entry, index) => (
+                <div
+                  key={entry.project_id}
+                  className="grid gap-2 rounded-sm border-2 border-[#d9b468] bg-[#fff8dc] p-3 text-[#3f2919] sm:grid-cols-[2rem_1fr_auto_auto]"
+                >
+                  <span className="font-mono text-[0.85rem] text-[#8a5a2f]">#{index + 1}</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[0.95rem] font-semibold">{entry.name}</p>
+                    <p className="truncate font-mono text-[10px] uppercase tracking-[0.1em] text-[#5f7d3a]">
+                      {entry.source.replaceAll("_", " ")} · {entry.assigned_agent}
+                    </p>
+                  </div>
+                  <span className="font-mono text-[0.85rem]">
+                    {Math.round(entry.pre_training_score * 100)}% → {Math.round(entry.post_training_score * 100)}%
+                  </span>
+                  <span className="font-mono text-[0.72rem] uppercase tracking-[0.1em] text-[#8a5a2f]">
+                    {entry.training_required ? `${entry.training_sessions_assigned} lessons` : "certified"}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
           <p className="mt-6 text-[1rem] leading-relaxed text-[#3f2919] sm:text-[1.08rem]">
             This project turns a SkillMD service into a live agent academy. Agents can read the

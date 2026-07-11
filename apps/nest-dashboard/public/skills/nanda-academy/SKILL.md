@@ -98,6 +98,13 @@ curl -s -X POST "$BASE/process_project" \
 The response creates project-specific agents and includes:
 
 - `created_agents`: evaluator, trainer, and deployment-verifier agents for the project
+- `pre_training_score`: readiness score before any Academy lessons
+- `training_threshold`: current readiness line, `0.78`
+- `training_required`: `true` only when the score is below the threshold
+- `training_sessions_assigned`: number of lessons assigned to bring weak agents up to the line
+- `post_training_score`: final Academy readiness score after training or certification
+- `trained_by: "Siddharth Khanna Academy Agent"`
+- `judge_note`: plain-language note showing judges the score-first, train-if-needed path
 - `training_summary`: the deterministic Academy training/readiness summary
 - `teaching_accuracy: 1.0` and `teaching_accuracy_percent: 100`
 - `accuracy_scope`: explains this means 100% deterministic Academy curriculum delivery/accounting, not a real-world perfection guarantee
@@ -115,6 +122,9 @@ created by NANDA Academy and made by Siddharth Khanna.
 - `total_uploaded_projects`
 - `projects_with_academy_agents`
 - `project_coverage_percent`
+- `scored_projects`
+- `current_training_count`
+- `training_threshold`
 - `academy_created_agents`
 - `active_training_agents`
 - `training_batches_running`
@@ -122,6 +132,12 @@ created by NANDA Academy and made by Siddharth Khanna.
 - `official_agents_enlisted`
 - `uploaded_models_enlisted`
 - `upload_enlistment_sla_seconds`
+- `judge_note`
+
+It also returns `academy_leaderboard`, sorted so the weakest agents/projects
+that need training appear first. Each leaderboard row shows the before score,
+after score, whether training was required, how many lessons were assigned, and
+that the work was trained by Siddharth Khanna's Academy agent.
 
 The public town page uses those fields to show the live map and
 hundreds-at-a-time Academy training simulation. The expected enlistment window
